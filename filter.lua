@@ -13,21 +13,21 @@ Filter.onset_clusters = {
   [8] = { "d", "dr", "g", "gr", "gl", "j" },                            -- up-left
 }
 
-Filter.onset_labels = { "S-", "T-", "P/B-", "C/K-", "M/N-", "F/V-", "R/L-", "D/G-" }
+Filter.onset_labels = { "S-", "T-", "P/B-", "C/K-", "M/N/W-", "F/V-", "R/L/H-", "D/G/J-" }
 
 -- Coda clusters (word endings)
 Filter.coda_clusters = {
-  [1] = { "e", "ee", "ea", "ie", "y" },         -- up (E sounds)
-  [2] = { "t", "te", "ght", "nt", "st" },       -- up-right
-  [3] = { "s", "es", "ss", "se", "ce" },        -- right
-  [4] = { "d", "de", "ed", "nd", "ld" },        -- down-right
-  [5] = { "n", "ne", "en", "in", "on", "an" },  -- down
-  [6] = { "r", "re", "er", "or", "ar", "ir" },  -- down-left
-  [7] = { "ng", "ing", "ong", "ang" },          -- left
-  [8] = { "l", "le", "al", "el", "ly", "ful" }, -- up-left
+  [1] = { "e", "ee", "ea", "ie", "y", "o", "oo", "oe", "ow", "i", "u", "ue", "ew", "a", "ay", "ey" }, -- up (vowels)
+  [2] = { "t", "te", "ght", "nt", "st", "k", "ck", "ke", "nk", "p", "pe" },                           -- up-right (unvoiced stops)
+  [3] = { "s", "es", "ss", "se", "ce", "x", "sh", "ch" },                                             -- right (sibilants)
+  [4] = { "d", "de", "ed", "nd", "ld" },                                                              -- down-right (D sounds)
+  [5] = { "n", "ne", "en", "in", "on", "an", "m", "me", "im", "um", "om" },                          -- down (nasals)
+  [6] = { "r", "re", "er", "or", "ar", "ir", "ur" },                                                  -- down-left (R sounds)
+  [7] = { "ng", "ing", "ong", "ang" },                                                                -- left (NG sounds)
+  [8] = { "l", "le", "al", "el", "ly", "ful", "ll" },                                                 -- up-left (L sounds)
 }
 
-Filter.coda_labels = { "-E", "-T", "-S", "-D", "-N", "-R", "-ING", "-L" }
+Filter.coda_labels = { "-Vowel", "-T/K/P", "-S/X", "-D", "-N/M", "-R", "-NG", "-L" }
 
 -- Check if word starts with any pattern in cluster
 local function matches_onset(word, cluster_idx)

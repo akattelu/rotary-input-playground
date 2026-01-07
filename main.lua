@@ -4,18 +4,25 @@ local Filter = require("filter")
 local words = {}
 local filtered = {}
 local selected_index = 1
+local page = 1      -- current page in select mode (1-indexed)
 local joystick = nil
+local sentence = {} -- accumulated selected words
 
 -- Stick state (normalized -1 to 1)
 local left_stick = { x = 0, y = 0 }
 local right_stick = { x = 0, y = 0 }
+local was_selecting = false -- track if sticks were engaged in select mode
+
+-- Trigger state (for edge detection)
+local zr_prev = 0
+local TRIGGER_THRESHOLD = 0.5
 
 -- Deadzone
 local DEADZONE = 0.3
 
 -- Display settings
 local VISIBLE_COUNT = 8 -- candidates shown in radial menu
-local RADIAL_RADIUS = 150
+local RADIAL_RADIUS = 90
 
 -- Mode: "filter" or "select"
 local mode = "filter"
@@ -61,6 +68,20 @@ function love.update(dt)
   right_stick.x = joystick:getGamepadAxis("rightx") or 0
   right_stick.y = joystick:getGamepadAxis("righty") or 0
 
+  -- Read trigger positions (analog 0-1)
+  local zr = joystick:getGamepadAxis("triggerright") or 0
+
+  -- Detect ZR press (rising edge)
+  if zr > TRIGGER_THRESHOLD and zr_prev <= TRIGGER_THRESHOLD then
+    -- ZR just pressed
+    if mode == "select" then
+      local total_pages = math.ceil(#filtered / VISIBLE_COUNT)
+      page = (page % total_pages) + 1
+      print("Page " .. page .. " / " .. total_pages)
+    end
+  end
+  zr_prev = zr
+
   -- Get cluster indices based on stick angles
   local left_cluster = get_cluster_from_stick(left_stick)
   local right_cluster = get_cluster_from_stick(right_stick)
@@ -68,16 +89,26 @@ function love.update(dt)
   if mode == "filter" then
     -- Live filtering as sticks move
     filtered = Filter.apply(words, left_cluster, right_cluster)
-
-    -- Check for "hold" to enter select mode (both sticks engaged)
-    if left_cluster and right_cluster then
-      -- Could use a button press or timer to confirm "hold"
-    end
   elseif mode == "select" then
     -- In select mode, stick position picks from visible candidates
     local selection = get_radial_selection(right_stick)
     if selection then
       selected_index = selection
+      was_selecting = true
+    end
+
+    -- Check if sticks have been released (both centered)
+    if was_selecting and not left_cluster and not right_cluster then
+      -- Accept the selected word (offset by current page)
+      local actual_index = (page - 1) * VISIBLE_COUNT + selected_index
+      if filtered[actual_index] then
+        table.insert(sentence, filtered[actual_index])
+        print("Added: " .. filtered[actual_index])
+      end
+      -- Return to filter mode
+      mode = "filter"
+      page = 1
+      was_selecting = false
     end
   end
 end
@@ -85,14 +116,14 @@ end
 function get_cluster_from_stick(stick)
   local magnitude = math.sqrt(stick.x ^ 2 + stick.y ^ 2)
   if magnitude < DEADZONE then
-    return nil     -- center position = no filter
+    return nil -- center position = no filter
   end
 
   -- Convert to angle (0-7 for 8 directions)
   local angle = math.atan2(stick.y, stick.x)
-  local normalized = (angle + math.pi) / (2 * math.pi)   -- 0 to 1
+  local normalized = (angle + math.pi) / (2 * math.pi) -- 0 to 1
   local cluster = math.floor(normalized * 8) % 8
-  return cluster + 1                                     -- 1-indexed
+  return cluster + 1                                   -- 1-indexed
 end
 
 function get_radial_selection(stick)
@@ -107,17 +138,19 @@ function get_radial_selection(stick)
 end
 
 function love.gamepadpressed(j, button)
-  if button == "a" then
-    -- Confirm selection
-    if filtered[selected_index] then
-      print("SELECTED: " .. filtered[selected_index])
+  if button == "rightshoulder" then
+    -- Enter select mode
+    if mode == "filter" then
+      mode = "select"
+      page = 1
+      was_selecting = false
     end
-  elseif button == "rightshoulder" then
-    -- Toggle mode
-    mode = (mode == "filter") and "select" or "filter"
   elseif button == "b" then
-    -- Cycle through filtered results
-    selected_index = (selected_index % math.min(#filtered, VISIBLE_COUNT)) + 1
+    -- Delete last word from sentence
+    if #sentence > 0 then
+      local removed = table.remove(sentence)
+      print("Removed: " .. removed)
+    end
   end
 end
 
@@ -139,19 +172,41 @@ function love.draw()
   love.graphics.setColor(0.5, 0.8, 0.5)
   love.graphics.printf("Mode: " .. mode:upper(), 0, 55, 800, "center")
 
+  -- Draw sentence
+  love.graphics.setColor(1, 1, 1)
+  local sentence_text = table.concat(sentence, " ")
+  if #sentence_text == 0 then
+    sentence_text = "(empty)"
+    love.graphics.setColor(0.5, 0.5, 0.5)
+  end
+  love.graphics.printf(sentence_text, 20, 85, 760, "left")
+
   -- Draw radial selection menu (center)
   draw_radial_menu(400, 320)
 
   -- Draw current selection prominently
-  if filtered[selected_index] then
+  local actual_index = (page - 1) * VISIBLE_COUNT + selected_index
+  if filtered[actual_index] then
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(filtered[selected_index], 0, 500, 800, "center")
+    love.graphics.printf(filtered[actual_index], 0, 500, 800, "center")
+  end
+
+  -- Draw pagination info in select mode
+  if mode == "select" and #filtered > VISIBLE_COUNT then
+    love.graphics.setColor(0.6, 0.6, 0.7)
+    local total_pages = math.ceil(#filtered / VISIBLE_COUNT)
+    local start_idx = (page - 1) * VISIBLE_COUNT + 1
+    local end_idx = math.min(page * VISIBLE_COUNT, #filtered)
+    love.graphics.printf(
+      string.format("Page %d/%d  (%d-%d of %d)", page, total_pages, start_idx, end_idx, #filtered),
+      0, 530, 800, "center"
+    )
   end
 
   -- Instructions
   love.graphics.setColor(0.4, 0.4, 0.4)
   love.graphics.printf(
-    "[A] Select  [RB] Toggle Mode  [B] Cycle",
+    "[RB] Select Mode  [R2/ZR] Next Page  [B] Delete Last Word  [Release Sticks] Accept",
     0, 560, 800, "center"
   )
 end
@@ -194,8 +249,12 @@ function draw_stick_indicator(cx, cy, stick, label, cluster_labels)
 end
 
 function draw_radial_menu(cx, cy)
+  -- Calculate which words to show based on current page
+  local start_idx = (page - 1) * VISIBLE_COUNT + 1
+  local end_idx = math.min(page * VISIBLE_COUNT, #filtered)
+
   local visible = {}
-  for i = 1, math.min(#filtered, VISIBLE_COUNT) do
+  for i = start_idx, end_idx do
     table.insert(visible, filtered[i])
   end
 
