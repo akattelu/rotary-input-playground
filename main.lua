@@ -1,247 +1,225 @@
-function buildKeyPositions(keyboard)
-  local positions = {}
-  local rowY = keyboard.baseY
+local Filter = require("filter")
 
-  for rowIndex, row in ipairs(keyboard.rows) do
-    local numKeys = #row
-    local rowWidth = numKeys * keyPitch - keySpacing
-    local rowStartX = keyboard.baseX + (175 - rowWidth) / 2     -- Center row relative to 5-key width
+-- State
+local words = {}
+local filtered = {}
+local selected_index = 1
+local joystick = nil
 
-    for colIndex, key in ipairs(row) do
-      local x = rowStartX + (colIndex - 1) * keyPitch
-      local y = rowY
-      positions[key] = { x = x, y = y }
-    end
+-- Stick state (normalized -1 to 1)
+local left_stick = { x = 0, y = 0 }
+local right_stick = { x = 0, y = 0 }
 
-    rowY = rowY + keyPitch
-  end
+-- Deadzone
+local DEADZONE = 0.3
 
-  return positions
-end
+-- Display settings
+local VISIBLE_COUNT = 8 -- candidates shown in radial menu
+local RADIAL_RADIUS = 150
 
-function drawKey(x, y, keyChar, isHighlighted)
-  if isHighlighted then
-    -- Highlighted key colors
-    love.graphics.setColor(0.8, 0.6, 0.1)     -- Orange fill
-    love.graphics.rectangle("fill", x, y, keySize, keySize)
-    love.graphics.setColor(1.0, 0.8, 0.2)     -- Yellow border
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x, y, keySize, keySize)
-    love.graphics.setColor(1, 1, 1)     -- White text
-  else
-    -- Normal key colors
-    love.graphics.setColor(0.2, 0.2, 0.2)     -- Dark fill
-    love.graphics.rectangle("fill", x, y, keySize, keySize)
-    love.graphics.setColor(0.4, 0.4, 0.4)     -- Gray border
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x, y, keySize, keySize)
-    love.graphics.setColor(0.8, 0.8, 0.8)     -- Light text
-  end
-
-  -- Draw centered text
-  local font = love.graphics.getFont()
-  local textWidth = font:getWidth(keyChar)
-  local textHeight = font:getHeight()
-  love.graphics.print(keyChar, x + (keySize - textWidth) / 2, y + (keySize - textHeight) / 2)
-end
-
-function drawKeyboard(keyboard, keyPositions, highlightedKey)
-  for _, row in ipairs(keyboard.rows) do
-    for _, key in ipairs(row) do
-      local pos = keyPositions[key]
-      if pos then
-        local isHighlighted = (key == highlightedKey)
-        drawKey(pos.x, pos.y, key, isHighlighted)
-      end
-    end
-  end
-end
-
-function getHighlightedKey(stickX, stickY, virtualPositions, centerKey)
-  -- Calculate magnitude
-  local magnitude = math.sqrt(stickX * stickX + stickY * stickY)
-
-  -- If joystick is near center, return center key
-  if magnitude < 20 then
-    return centerKey
-  end
-
-  -- Find closest key using distance-based algorithm
-  local minDistance = math.huge
-  local closestKey = centerKey
-
-  for key, virtualPos in pairs(virtualPositions) do
-    local vx, vy = virtualPos[1], virtualPos[2]
-    local distance = math.sqrt((stickX - vx) * (stickX - vx) + (stickY - vy) * (stickY - vy))
-
-    if distance < minDistance then
-      minDistance = distance
-      closestKey = key
-    end
-  end
-
-  return closestKey
-end
+-- Mode: "filter" or "select"
+local mode = "filter"
+local held_filter = nil -- stores filter state when entering select mode
 
 function love.load()
-  love.window.setTitle("Controller Input Visualizer")
-  love.window.setMode(800, 650)
+  -- Load word list
+  local content = love.filesystem.read("words.txt")
+  if content then
+    for word in content:gmatch("[^\r\n]+") do
+      if #word > 0 then
+        table.insert(words, word:lower())
+      end
+    end
+  else
+    -- Fallback test words
+    words = { "the", "be", "to", "of", "and", "a", "in", "that", "have", "it",
+      "for", "not", "on", "with", "he", "as", "you", "do", "at", "this",
+      "but", "his", "by", "from", "they", "we", "say", "her", "she", "or",
+      "an", "will", "my", "one", "all", "would", "there", "their", "what",
+      "so", "up", "out", "if", "about", "who", "get", "which", "go", "me",
+      "function", "return", "const", "let", "var", "string", "number",
+      "select", "filter", "search", "find", "start", "stop", "send",
+      "think", "thank", "throw", "through", "then", "than", "ten", "ton",
+      "token", "taken", "turn", "twin", "tension", "transition", "train" }
+  end
 
-  -- Joystick state
-  joystick = nil
+  print("Loaded " .. #words .. " words")
+  filtered = words
+end
 
-  -- Circle properties
-  circleRadius = 30
-  deadzone = 0.1
-  maxDistance = 100
-
-  -- Left stick position
-  leftStickX = 0
-  leftStickY = 0
-
-  -- Right stick position
-  rightStickX = 0
-  rightStickY = 0
-
-  -- Base positions on screen
-  leftBaseX = 250
-  leftBaseY = 300
-  rightBaseX = 550
-  rightBaseY = 300
-
-  -- Keyboard properties
-  keySize = 30
-  keySpacing = 5
-  keyPitch = 35
-
-  -- Left keyboard definition
-  leftKeyboard = {
-    rows = {
-      { "q", "w", "e", "r", "t" },
-      { "a", "s", "d", "f", "g" },
-      { "z", "x", "c", "v" }
-    },
-    baseX = 165,
-    baseY = 450,
-    centerKey = "d"
-  }
-
-  -- Right keyboard definition
-  rightKeyboard = {
-    rows = {
-      { "y", "u", "i", "o", "p" },
-      { "h", "j", "k", "l" },
-      { "b", "n", "m", "." }
-    },
-    baseX = 465,
-    baseY = 450,
-    centerKey = "j"
-  }
-
-  -- Virtual positions for mapping (distance-based algorithm)
-  leftKeyVirtualPositions = {
-    q = { -85, -85 },
-    w = { 0, -85 },
-    e = { 85, -85 },
-    r = { 60, -60 },
-    t = { 85, -50 },
-    a = { -85, 0 },
-    s = { -30, 0 },
-    d = { 0, 0 },
-    f = { 30, 0 },
-    g = { 85, 0 },
-    z = { -85, 85 },
-    x = { -30, 85 },
-    c = { 30, 85 },
-    v = { 85, 85 }
-  }
-
-  rightKeyVirtualPositions = {
-    y = { -85, -50 },
-    u = { -60, -60 },
-    i = { 0, -85 },
-    o = { 85, -85 },
-    p = { 85, -60 },
-    h = { -85, 0 },
-    j = { 0, 0 },
-    k = { 30, 0 },
-    l = { 85, 0 },
-    b = { -85, 85 },
-    n = { -30, 85 },
-    m = { 30, 85 },
-    ["."] = { 85, 85 }
-  }
-
-  -- State variables for highlighted keys
-  leftHighlightedKey = "d"
-  rightHighlightedKey = "j"
-
-  -- Build key position lookup tables
-  leftKeyPositions = buildKeyPositions(leftKeyboard)
-  rightKeyPositions = buildKeyPositions(rightKeyboard)
+function love.joystickadded(j)
+  joystick = j
+  print("Controller connected: " .. j:getName())
 end
 
 function love.update(dt)
-  -- Get the first connected joystick
-  local joysticks = love.joystick.getJoysticks()
-  if #joysticks > 0 then
-    joystick = joysticks[1]
+  if not joystick then return end
 
-    -- Get left stick axes
-    local leftX = joystick:getGamepadAxis("leftx")
-    local leftY = joystick:getGamepadAxis("lefty")
+  -- Read stick positions
+  left_stick.x = joystick:getGamepadAxis("leftx") or 0
+  left_stick.y = joystick:getGamepadAxis("lefty") or 0
+  right_stick.x = joystick:getGamepadAxis("rightx") or 0
+  right_stick.y = joystick:getGamepadAxis("righty") or 0
 
-    -- Apply deadzone
-    if math.abs(leftX) < deadzone then leftX = 0 end
-    if math.abs(leftY) < deadzone then leftY = 0 end
+  -- Get cluster indices based on stick angles
+  local left_cluster = get_cluster_from_stick(left_stick)
+  local right_cluster = get_cluster_from_stick(right_stick)
 
-    leftStickX = leftX * maxDistance
-    leftStickY = leftY * maxDistance
+  if mode == "filter" then
+    -- Live filtering as sticks move
+    filtered = Filter.apply(words, left_cluster, right_cluster)
 
-    -- Get right stick axes
-    local rightX = joystick:getGamepadAxis("rightx")
-    local rightY = joystick:getGamepadAxis("righty")
+    -- Check for "hold" to enter select mode (both sticks engaged)
+    if left_cluster and right_cluster then
+      -- Could use a button press or timer to confirm "hold"
+    end
+  elseif mode == "select" then
+    -- In select mode, stick position picks from visible candidates
+    local selection = get_radial_selection(right_stick)
+    if selection then
+      selected_index = selection
+    end
+  end
+end
 
-    -- Apply deadzone
-    if math.abs(rightX) < deadzone then rightX = 0 end
-    if math.abs(rightY) < deadzone then rightY = 0 end
+function get_cluster_from_stick(stick)
+  local magnitude = math.sqrt(stick.x ^ 2 + stick.y ^ 2)
+  if magnitude < DEADZONE then
+    return nil     -- center position = no filter
+  end
 
-    rightStickX = rightX * maxDistance
-    rightStickY = rightY * maxDistance
+  -- Convert to angle (0-7 for 8 directions)
+  local angle = math.atan2(stick.y, stick.x)
+  local normalized = (angle + math.pi) / (2 * math.pi)   -- 0 to 1
+  local cluster = math.floor(normalized * 8) % 8
+  return cluster + 1                                     -- 1-indexed
+end
 
-    -- Calculate highlighted keys based on joystick positions
-    leftHighlightedKey = getHighlightedKey(leftStickX, leftStickY, leftKeyVirtualPositions, leftKeyboard.centerKey)
-    rightHighlightedKey = getHighlightedKey(rightStickX, rightStickY, rightKeyVirtualPositions, rightKeyboard.centerKey)
+function get_radial_selection(stick)
+  local magnitude = math.sqrt(stick.x ^ 2 + stick.y ^ 2)
+  if magnitude < 0.5 then
+    return nil
+  end
+  local angle = math.atan2(stick.y, stick.x)
+  local normalized = (angle + math.pi) / (2 * math.pi)
+  local index = math.floor(normalized * VISIBLE_COUNT) % VISIBLE_COUNT
+  return index + 1
+end
+
+function love.gamepadpressed(j, button)
+  if button == "a" then
+    -- Confirm selection
+    if filtered[selected_index] then
+      print("SELECTED: " .. filtered[selected_index])
+    end
+  elseif button == "rightshoulder" then
+    -- Toggle mode
+    mode = (mode == "filter") and "select" or "filter"
+  elseif button == "b" then
+    -- Cycle through filtered results
+    selected_index = (selected_index % math.min(#filtered, VISIBLE_COUNT)) + 1
   end
 end
 
 function love.draw()
-  love.graphics.setBackgroundColor(0.1, 0.1, 0.1)
+  love.graphics.setBackgroundColor(0.1, 0.1, 0.12)
 
-  if joystick then
-    -- Draw left stick
-    love.graphics.setColor(0.3, 0.3, 0.3)
-    love.graphics.circle("fill", leftBaseX, leftBaseY, maxDistance)
-    love.graphics.setColor(0.2, 0.8, 0.2)
-    love.graphics.circle("fill", leftBaseX + leftStickX, leftBaseY + leftStickY, circleRadius)
+  -- Draw cluster indicators
+  draw_stick_indicator(150, 300, left_stick, "START", Filter.onset_labels)
+  draw_stick_indicator(650, 300, right_stick, "END", Filter.coda_labels)
 
-    -- Draw right stick
-    love.graphics.setColor(0.3, 0.3, 0.3)
-    love.graphics.circle("fill", rightBaseX, rightBaseY, maxDistance)
-    love.graphics.setColor(0.2, 0.2, 0.8)
-    love.graphics.circle("fill", rightBaseX + rightStickX, rightBaseY + rightStickY, circleRadius)
+  -- Draw filtered count
+  love.graphics.setColor(0.7, 0.7, 0.7)
+  love.graphics.printf(
+    string.format("Filtered: %d / %d", #filtered, #words),
+    0, 30, 800, "center"
+  )
 
-    -- Draw keyboards
-    drawKeyboard(leftKeyboard, leftKeyPositions, leftHighlightedKey)
-    drawKeyboard(rightKeyboard, rightKeyPositions, rightHighlightedKey)
+  -- Draw mode indicator
+  love.graphics.setColor(0.5, 0.8, 0.5)
+  love.graphics.printf("Mode: " .. mode:upper(), 0, 55, 800, "center")
 
-    -- Draw labels
+  -- Draw radial selection menu (center)
+  draw_radial_menu(400, 320)
+
+  -- Draw current selection prominently
+  if filtered[selected_index] then
     love.graphics.setColor(1, 1, 1)
-    love.graphics.print("Left Stick", leftBaseX - 30, leftBaseY - 130)
-    love.graphics.print("Right Stick", rightBaseX - 35, rightBaseY - 130)
-    love.graphics.print("Controller: " .. joystick:getName(), 10, 10)
-  else
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.print("No controller connected", 300, 300)
+    love.graphics.printf(filtered[selected_index], 0, 500, 800, "center")
+  end
+
+  -- Instructions
+  love.graphics.setColor(0.4, 0.4, 0.4)
+  love.graphics.printf(
+    "[A] Select  [RB] Toggle Mode  [B] Cycle",
+    0, 560, 800, "center"
+  )
+end
+
+function draw_stick_indicator(cx, cy, stick, label, cluster_labels)
+  local radius = 80
+
+  -- Outer ring
+  love.graphics.setColor(0.3, 0.3, 0.35)
+  love.graphics.circle("line", cx, cy, radius)
+
+  -- Cluster segments
+  for i = 1, 8 do
+    local angle = (i - 1) * math.pi / 4 - math.pi
+    local lx = cx + math.cos(angle) * (radius + 20)
+    local ly = cy + math.sin(angle) * (radius + 20)
+
+    local cluster = get_cluster_from_stick(stick)
+    if cluster == i then
+      love.graphics.setColor(0.4, 0.8, 0.4)
+    else
+      love.graphics.setColor(0.5, 0.5, 0.5)
+    end
+
+    local cluster_label = cluster_labels[i] or tostring(i)
+    love.graphics.printf(cluster_label, lx - 30, ly - 8, 60, "center")
+  end
+
+  -- Stick position
+  love.graphics.setColor(0.9, 0.3, 0.3)
+  love.graphics.circle("fill",
+    cx + stick.x * radius * 0.8,
+    cy + stick.y * radius * 0.8,
+    8
+  )
+
+  -- Label
+  love.graphics.setColor(0.6, 0.6, 0.6)
+  love.graphics.printf(label, cx - 40, cy + radius + 40, 80, "center")
+end
+
+function draw_radial_menu(cx, cy)
+  local visible = {}
+  for i = 1, math.min(#filtered, VISIBLE_COUNT) do
+    table.insert(visible, filtered[i])
+  end
+
+  if #visible == 0 then
+    love.graphics.setColor(0.5, 0.3, 0.3)
+    love.graphics.printf("No matches", cx - 50, cy, 100, "center")
+    return
+  end
+
+  for i, word in ipairs(visible) do
+    local angle = (i - 1) * (2 * math.pi / VISIBLE_COUNT) - math.pi / 2
+    local wx = cx + math.cos(angle) * RADIAL_RADIUS
+    local wy = cy + math.sin(angle) * RADIAL_RADIUS
+
+    if i == selected_index then
+      love.graphics.setColor(0.3, 0.7, 0.9)
+      love.graphics.circle("fill", wx, wy, 35)
+      love.graphics.setColor(1, 1, 1)
+    else
+      love.graphics.setColor(0.25, 0.25, 0.3)
+      love.graphics.circle("fill", wx, wy, 30)
+      love.graphics.setColor(0.8, 0.8, 0.8)
+    end
+
+    love.graphics.printf(word, wx - 40, wy - 8, 80, "center")
   end
 end
