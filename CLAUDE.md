@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Laser Love is a LÖVE2D application implementing a dual QWERTY keyboard input system for word selection using dual gamepad joysticks. Each joystick controls a full QWERTY keyboard - left stick filters by word beginnings, right stick filters by word endings. Users point joysticks at letter regions, then select from a radial menu to build sentences.
+Rotary input playground is a LÖVE2D application implementing a dual QWERTY keyboard input system for word selection using dual gamepad joysticks. Each joystick controls a full QWERTY keyboard - left stick filters by word beginnings, right stick filters by word endings. Users point joysticks at letter regions, then select from a radial menu to build sentences.
 The goal is to be a playground for alternate input systems with a standard game controller.
 
 ## Running the Application
