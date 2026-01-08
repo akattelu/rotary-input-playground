@@ -1,67 +1,113 @@
 local Filter = {}
 
--- Onset clusters (word beginnings) - mapped to 8 joystick directions
--- These are rough phonetic/orthographic groupings
-Filter.onset_clusters = {
-  [1] = { "s", "st", "str", "sc", "sk", "sl", "sm", "sn", "sp", "sw" }, -- up
-  [2] = { "t", "th", "tr", "tw" },                                      -- up-right
-  [3] = { "p", "pr", "pl", "b", "br", "bl" },                           -- right
-  [4] = { "c", "ch", "cl", "cr", "k", "q" },                            -- down-right
-  [5] = { "m", "n", "w", "wh" },                                        -- down
-  [6] = { "f", "fl", "fr", "v" },                                       -- down-left
-  [7] = { "r", "l", "h" },                                              -- left
-  [8] = { "d", "dr", "g", "gr", "gl", "j" },                            -- up-left
+-- Full QWERTY keyboard virtual positions for distance-based selection
+-- Coordinates are in virtual space (-100 to 100)
+-- Both left and right joysticks use the same full keyboard layout
+Filter.keyboard_virtual_positions = {
+  -- Top row (q w e r t y u i o p)
+  q = { -90, -70 }, w = { -70, -70 }, e = { -50, -70 }, r = { -30, -70 }, t = { -10, -70 },
+  y = { 10, -70 }, u = { 30, -70 }, i = { 50, -70 }, o = { 70, -70 }, p = { 90, -70 },
+  -- Middle row (a s d f g h j k l)
+  a = { -80, 0 }, s = { -60, 0 }, d = { -40, 0 }, f = { -20, 0 }, g = { 0, 0 },
+  h = { 20, 0 }, j = { 40, 0 }, k = { 60, 0 }, l = { 80, 0 },
+  -- Bottom row (z x c v b n m)
+  z = { -75, 70 }, x = { -50, 70 }, c = { -25, 70 }, v = { 0, 70 },
+  b = { 25, 70 }, n = { 50, 70 }, m = { 75, 70 }
 }
 
-Filter.onset_labels = { "S-", "T-", "P/B-", "C/K-", "M/N/W-", "F/V-", "R/L/H-", "D/G/J-" }
+Filter.center_key = "g"  -- Center of keyboard
 
--- Coda clusters (word endings)
-Filter.coda_clusters = {
-  [1] = { "e", "ee", "ea", "ie", "y", "o", "oo", "oe", "ow", "i", "u", "ue", "ew", "a", "ay", "ey" }, -- up (vowels)
-  [2] = { "t", "te", "ght", "nt", "st", "k", "ck", "ke", "nk", "p", "pe" },                           -- up-right (unvoiced stops)
-  [3] = { "s", "es", "ss", "se", "ce", "x", "sh", "ch" },                                             -- right (sibilants)
-  [4] = { "d", "de", "ed", "nd", "ld" },                                                              -- down-right (D sounds)
-  [5] = { "n", "ne", "en", "in", "on", "an", "m", "me", "im", "um", "om" },                          -- down (nasals)
-  [6] = { "r", "re", "er", "or", "ar", "ir", "ur" },                                                  -- down-left (R sounds)
-  [7] = { "ng", "ing", "ong", "ang" },                                                                -- left (NG sounds)
-  [8] = { "l", "le", "al", "el", "ly", "ful", "ll" },                                                 -- up-left (L sounds)
-}
+-- Number of nearby keys to include in filter
+Filter.REGION_COUNT = 4
 
-Filter.coda_labels = { "-Vowel", "-T/K/P", "-S/X", "-D", "-N/M", "-R", "-NG", "-L" }
+-- Center deadzone threshold (in virtual space units)
+local CENTER_DEADZONE = 20
 
--- Check if word starts with any pattern in cluster
-local function matches_onset(word, cluster_idx)
-  if not cluster_idx then return true end
-  local patterns = Filter.onset_clusters[cluster_idx]
-  if not patterns then return true end
+-- Get the single closest key to stick position
+function Filter.get_closest_key(stick_x, stick_y, virtual_positions, center_key)
+  local magnitude = math.sqrt(stick_x * stick_x + stick_y * stick_y)
 
-  for _, pattern in ipairs(patterns) do
-    if word:sub(1, #pattern) == pattern then
+  -- If near center, return center key
+  if magnitude < CENTER_DEADZONE then
+    return center_key
+  end
+
+  local min_distance = math.huge
+  local closest_key = center_key
+
+  for key, pos in pairs(virtual_positions) do
+    local vx, vy = pos[1], pos[2]
+    local distance = math.sqrt((stick_x - vx) ^ 2 + (stick_y - vy) ^ 2)
+    if distance < min_distance then
+      min_distance = distance
+      closest_key = key
+    end
+  end
+
+  return closest_key
+end
+
+-- Get array of N closest keys for region-based filtering
+function Filter.get_key_region(stick_x, stick_y, virtual_positions, center_key)
+  local magnitude = math.sqrt(stick_x * stick_x + stick_y * stick_y)
+
+  -- If near center, return nil (no filter applied)
+  if magnitude < CENTER_DEADZONE then
+    return nil
+  end
+
+  -- Calculate distances to all keys
+  local distances = {}
+  for key, pos in pairs(virtual_positions) do
+    local vx, vy = pos[1], pos[2]
+    local distance = math.sqrt((stick_x - vx) ^ 2 + (stick_y - vy) ^ 2)
+    table.insert(distances, { key = key, distance = distance })
+  end
+
+  -- Sort by distance (ascending)
+  table.sort(distances, function(a, b) return a.distance < b.distance end)
+
+  -- Return the N closest keys
+  local region = {}
+  for i = 1, math.min(Filter.REGION_COUNT, #distances) do
+    table.insert(region, distances[i].key)
+  end
+
+  return region
+end
+
+-- Check if word starts with any letter in the region
+local function matches_start_letters(word, letter_region)
+  if not letter_region then return true end
+
+  local first_char = word:sub(1, 1)
+  for _, letter in ipairs(letter_region) do
+    if first_char == letter then
       return true
     end
   end
   return false
 end
 
--- Check if word ends with any pattern in cluster
-local function matches_coda(word, cluster_idx)
-  if not cluster_idx then return true end
-  local patterns = Filter.coda_clusters[cluster_idx]
-  if not patterns then return true end
+-- Check if word ends with any letter in the region
+local function matches_end_letters(word, letter_region)
+  if not letter_region then return true end
 
-  for _, pattern in ipairs(patterns) do
-    if word:sub(- #pattern) == pattern then
+  local last_char = word:sub(-1)
+  for _, letter in ipairs(letter_region) do
+    if last_char == letter then
       return true
     end
   end
   return false
 end
 
--- Apply both filters
-function Filter.apply(words, left_cluster, right_cluster)
+-- Apply filtering based on letter regions
+-- left_region: array of letters for word start filtering (or nil)
+-- right_region: array of letters for word end filtering (or nil)
+function Filter.apply(words, left_region, right_region)
   -- No filtering if both sticks centered
-  if not left_cluster and not right_cluster then
-    -- Return most frequent words
+  if not left_region and not right_region then
     local result = {}
     for i = 1, math.min(100, #words) do
       table.insert(result, words[i])
@@ -71,7 +117,7 @@ function Filter.apply(words, left_cluster, right_cluster)
 
   local result = {}
   for _, word in ipairs(words) do
-    if matches_onset(word, left_cluster) and matches_coda(word, right_cluster) then
+    if matches_start_letters(word, left_region) and matches_end_letters(word, right_region) then
       table.insert(result, word)
     end
     -- Limit for performance
