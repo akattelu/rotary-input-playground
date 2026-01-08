@@ -281,9 +281,20 @@ end
 
 function love.gamepadpressed(j, button)
   if button == "rightshoulder" then
-    -- Enter select mode
     if mode == "filter" then
+      -- Enter select mode
       mode = "select"
+      page = 1
+      was_selecting = false
+    elseif mode == "select" then
+      -- Accept the selected word when RB is pressed again
+      local actual_index = (page - 1) * VISIBLE_COUNT + selected_index
+      if filtered[actual_index] then
+        table.insert(sentence, filtered[actual_index])
+        print("Added: " .. filtered[actual_index])
+      end
+      -- Return to filter mode
+      mode = "filter"
       page = 1
       was_selecting = false
     end
@@ -369,7 +380,7 @@ function love.draw()
   -- Instructions
   love.graphics.setColor(0.4, 0.4, 0.4)
   love.graphics.printf(
-    "[RB] Select Mode  [R2/ZR] Next Page  [B] Delete Last Word  [Release Right Stick] Accept",
+    "[RB] Select Mode / Accept  [R2/ZR] Next Page  [B] Delete Last Word  [Release Right Stick] Accept",
     0, 560, 800, "center"
   )
 end
