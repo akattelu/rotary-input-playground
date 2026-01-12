@@ -166,6 +166,11 @@ function draw_stick_visualizer(cx, cy, stick, label)
 end
 
 function love.load()
+  -- Set Fira Mono font with better rendering quality
+  local font = love.graphics.newFont("FiraMonoNerdFont-Regular.otf", 14, "normal")
+  font:setFilter("nearest", "nearest")  -- Crisp pixel-perfect rendering
+  love.graphics.setFont(font)
+
   -- Load word list
   local content = love.filesystem.read("words.txt")
   if content then
