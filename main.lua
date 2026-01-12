@@ -32,6 +32,53 @@ local mode = "filter"
 local left_dial = nil
 local right_dial = nil
 
+-- Helper functions
+local function get_radial_selection(stick)
+  local magnitude = math.sqrt(stick.x ^ 2 + stick.y ^ 2)
+  if magnitude < 0.5 then
+    return nil
+  end
+  -- Adjust normalization to match drawing offset (-π/2)
+  local angle = math.atan2(stick.y, stick.x)
+  local normalized = (angle + math.pi / 2) / (2 * math.pi)
+  local index = math.floor(normalized * VISIBLE_COUNT) % VISIBLE_COUNT
+  return index + 1
+end
+
+local function draw_radial_menu(cx, cy)
+  -- Calculate which words to show based on current page
+  local start_idx = (page - 1) * VISIBLE_COUNT + 1
+  local end_idx = math.min(page * VISIBLE_COUNT, #filtered)
+
+  local visible = {}
+  for i = start_idx, end_idx do
+    table.insert(visible, filtered[i])
+  end
+
+  if #visible == 0 then
+    love.graphics.setColor(0.5, 0.3, 0.3)
+    love.graphics.printf("No matches", cx - 50, cy, 100, "center")
+    return
+  end
+
+  for i, word in ipairs(visible) do
+    local angle = (i - 1) * (2 * math.pi / VISIBLE_COUNT) - math.pi / 2
+    local wx = cx + math.cos(angle) * RADIAL_RADIUS
+    local wy = cy + math.sin(angle) * RADIAL_RADIUS
+
+    if i == selected_index then
+      love.graphics.setColor(0.3, 0.7, 0.9)
+      love.graphics.circle("fill", wx, wy, 35)
+      love.graphics.setColor(1, 1, 1)
+    else
+      love.graphics.setColor(0.25, 0.25, 0.3)
+      love.graphics.circle("fill", wx, wy, 30)
+      love.graphics.setColor(0.8, 0.8, 0.8)
+    end
+
+    love.graphics.printf(word, wx - 40, wy - 8, 80, "center")
+  end
+end
 
 function love.load()
   -- Set window to full screen dimensions
@@ -90,10 +137,9 @@ end
 
 function love.joystickadded(j)
   joystick = j
-  print("Controller connected: " .. j:getName())
 end
 
-function love.update(dt)
+function love.update(_dt)
   if not joystick then return end
 
   -- Read stick positions
@@ -124,12 +170,12 @@ function love.update(dt)
   local right_vy = right_stick.y * maxDistance
 
   -- Update dials
-  left_dial:update(left_vx, left_vy)
-  right_dial:update(right_vx, right_vy)
+  if left_dial then left_dial:update(left_vx, left_vy) end
+  if right_dial then right_dial:update(right_vx, right_vy) end
 
   -- Get regions for filtering
-  local left_region = left_dial:get_region()
-  local right_region = right_dial:get_region()
+  local left_region = left_dial and left_dial:get_region()
+  local right_region = right_dial and right_dial:get_region()
 
   if mode == "filter" then
     -- Live filtering using letter regions
@@ -160,19 +206,7 @@ function love.update(dt)
   end
 end
 
-function get_radial_selection(stick)
-  local magnitude = math.sqrt(stick.x ^ 2 + stick.y ^ 2)
-  if magnitude < 0.5 then
-    return nil
-  end
-  -- Adjust normalization to match drawing offset (-π/2)
-  local angle = math.atan2(stick.y, stick.x)
-  local normalized = (angle + math.pi / 2) / (2 * math.pi)
-  local index = math.floor(normalized * VISIBLE_COUNT) % VISIBLE_COUNT
-  return index + 1
-end
-
-function love.gamepadpressed(j, button)
+function love.gamepadpressed(_j, button)
   if button == "rightshoulder" then
     if mode == "filter" then
       -- Enter select mode
@@ -204,12 +238,12 @@ function love.draw()
   love.graphics.setBackgroundColor(0.1, 0.1, 0.12)
 
   -- Draw dials (includes keyboards and visualizers)
-  left_dial:draw()
-  right_dial:draw()
+  if left_dial then left_dial:draw() end
+  if right_dial then right_dial:draw() end
 
   -- Draw region indicator text
-  local left_region = left_dial:get_region()
-  local right_region = right_dial:get_region()
+  local left_region = left_dial and left_dial:get_region()
+  local right_region = right_dial and right_dial:get_region()
 
   love.graphics.setColor(0.6, 0.8, 0.6)
   if left_region then
@@ -275,39 +309,4 @@ function love.draw()
     "[RB] Select Mode / Accept  [R2/ZR] Next Page  [B] Delete Last Word  [Release Right Stick] Accept",
     0, 560, 800, "center"
   )
-end
-
-function draw_radial_menu(cx, cy)
-  -- Calculate which words to show based on current page
-  local start_idx = (page - 1) * VISIBLE_COUNT + 1
-  local end_idx = math.min(page * VISIBLE_COUNT, #filtered)
-
-  local visible = {}
-  for i = start_idx, end_idx do
-    table.insert(visible, filtered[i])
-  end
-
-  if #visible == 0 then
-    love.graphics.setColor(0.5, 0.3, 0.3)
-    love.graphics.printf("No matches", cx - 50, cy, 100, "center")
-    return
-  end
-
-  for i, word in ipairs(visible) do
-    local angle = (i - 1) * (2 * math.pi / VISIBLE_COUNT) - math.pi / 2
-    local wx = cx + math.cos(angle) * RADIAL_RADIUS
-    local wy = cy + math.sin(angle) * RADIAL_RADIUS
-
-    if i == selected_index then
-      love.graphics.setColor(0.3, 0.7, 0.9)
-      love.graphics.circle("fill", wx, wy, 35)
-      love.graphics.setColor(1, 1, 1)
-    else
-      love.graphics.setColor(0.25, 0.25, 0.3)
-      love.graphics.circle("fill", wx, wy, 30)
-      love.graphics.setColor(0.8, 0.8, 0.8)
-    end
-
-    love.graphics.printf(word, wx - 40, wy - 8, 80, "center")
-  end
 end
