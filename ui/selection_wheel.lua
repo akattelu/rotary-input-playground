@@ -124,28 +124,34 @@ function SelectionWheel:draw(filtered)
 end
 
 -- Draw mode indicator text
-function SelectionWheel:draw_mode_indicator(mode, x, width)
+function SelectionWheel:draw_mode_indicator(mode, x, width, height)
   x = x or 0
   width = width or 800
+  height = height or 600
   love.graphics.setColor(0.5, 0.8, 0.5)
-  love.graphics.printf("Mode: " .. mode:upper(), x, 55, width, "center")
+  love.graphics.printf("Mode: " .. mode:upper(), x, height * 0.28, width, "center")
 end
 
--- Draw current selection prominently at top
-function SelectionWheel:draw_current_selection(filtered, x, width)
+-- Draw current selection prominently centered in wheel
+function SelectionWheel:draw_current_selection(filtered, x, width, height)
   x = x or 0
   width = width or 800
+  height = height or 600
   local actual_index = (self.page - 1) * self.config.visible_count + self.selected_index
   if filtered[actual_index] then
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(filtered[actual_index], x, 130, width, "center")
+    -- Center text vertically in the wheel (at wheel's cy position)
+    local font = love.graphics.getFont()
+    local text_height = font:getHeight()
+    love.graphics.printf(filtered[actual_index], x, self.config.cy - text_height / 2, width, "center")
   end
 end
 
 -- Draw pagination information
-function SelectionWheel:draw_pagination_info(filtered, x, width)
+function SelectionWheel:draw_pagination_info(filtered, x, width, height)
   x = x or 0
   width = width or 800
+  height = height or 600
   if #filtered > self.config.visible_count then
     love.graphics.setColor(0.6, 0.6, 0.7)
     local total_pages = math.ceil(#filtered / self.config.visible_count)
@@ -153,7 +159,7 @@ function SelectionWheel:draw_pagination_info(filtered, x, width)
     local end_idx = math.min(self.page * self.config.visible_count, #filtered)
     love.graphics.printf(
       string.format("Page %d/%d  (%d-%d of %d)", self.page, total_pages, start_idx, end_idx, #filtered),
-      x, 155, width, "center"
+      x, height * 0.32, width, "center"
     )
   end
 end

@@ -28,13 +28,21 @@ function love.load()
   -- Load word list
   words = Corpus.load()
 
-  -- Create and initialize input menu
+  -- Create and initialize input menu with responsive dimensions
+  local width, height = love.graphics.getDimensions()
   input_menu = InputMenu.new({
-    x = 400,
-    width = 400,
-    height = 600
+    x = width / 2,
+    width = width / 2,
+    height = height
   })
   input_menu:load()
+end
+
+function love.resize(w, h)
+  -- Update input menu dimensions when window is resized
+  if input_menu then
+    input_menu:resize(w / 2, 0, w / 2, h)
+  end
 end
 
 function love.joystickadded(j)
@@ -84,24 +92,27 @@ end
 function love.draw()
   love.graphics.setBackgroundColor(0.1, 0.1, 0.12)
 
-  -- Draw sentence (always visible)
+  -- Get current window dimensions
+  local width, height = love.graphics.getDimensions()
+
+  -- Draw sentence (always visible, left half of screen)
   love.graphics.setColor(1, 1, 1)
   local sentence_text = table.concat(sentence, " ")
   if #sentence_text == 0 then
     sentence_text = "(empty)"
     love.graphics.setColor(0.5, 0.5, 0.5)
   end
-  love.graphics.printf(sentence_text, 20, 85, 760, "left")
+  love.graphics.printf(sentence_text, 20, 85, width / 2 - 40, "left")
 
   -- Draw input menu if visible
   if input_menu_visible and input_menu then
     input_menu:draw()
   end
 
-  -- Instructions
+  -- Instructions (aligned to viewport bottom)
   love.graphics.setColor(0.4, 0.4, 0.4)
   love.graphics.printf(
     "[X/□] Toggle Menu  [RB] Select Mode  [ZR/R2] Next Page  [B] Delete  [Release Stick] Accept",
-    0, 560, 800, "center"
+    0, height - 40, width, "center"
   )
 end

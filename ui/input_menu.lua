@@ -37,11 +37,12 @@ end
 function InputMenu:load()
   -- Calculate center x of right half
   local center_x = self.config.x + self.config.width / 2
+  local left_margin = self.config.x + 30
 
   -- Selection wheel (top)
   self.selection_wheel = SelectionWheel.new({
     cx = center_x,
-    cy = 120,
+    cy = self.config.height * 0.18,
     visible_count = 8,
     radial_radius = 80,
     deadzone = 0.3
@@ -49,24 +50,63 @@ function InputMenu:load()
   self.selection_wheel:load()
 
   -- Left dial (middle) - START keyboard
+  -- Dial visualizer on left, keyboard on right
   self.left_dial = Dial.new({
-    baseX = self.config.x + 50,
-    baseY = 280,
-    visualizerX = center_x + 100,
-    visualizerY = 250,
+    baseX = center_x - 50,
+    baseY = self.config.height * 0.45,
+    visualizerX = left_margin + 60,
+    visualizerY = self.config.height * 0.45,
     label = "START"
   })
   self.left_dial:load()
 
   -- Right dial (bottom) - END keyboard
+  -- Dial visualizer on left, keyboard on right
   self.right_dial = Dial.new({
-    baseX = self.config.x + 50,
-    baseY = 455,
-    visualizerX = center_x + 100,
-    visualizerY = 425,
+    baseX = center_x - 50,
+    baseY = self.config.height * 0.70,
+    visualizerX = left_margin + 60,
+    visualizerY = self.config.height * 0.70,
     label = "END"
   })
   self.right_dial:load()
+end
+
+-- Resize and reposition all components
+function InputMenu:resize(x, y, width, height)
+  -- Update configuration
+  self.config.x = x
+  self.config.y = y
+  self.config.width = width
+  self.config.height = height
+
+  -- Recalculate positions and update components
+  local center_x = x + width / 2
+  local left_margin = x + 30
+
+  -- Update selection wheel
+  if self.selection_wheel then
+    self.selection_wheel.config.cx = center_x
+    self.selection_wheel.config.cy = height * 0.18
+  end
+
+  -- Update left dial (dial on left, keyboard on right)
+  if self.left_dial then
+    self.left_dial.config.baseX = center_x - 50
+    self.left_dial.config.baseY = height * 0.45
+    self.left_dial.config.visualizerX = left_margin + 60
+    self.left_dial.config.visualizerY = height * 0.45
+    self.left_dial.key_positions = self.left_dial:buildKeyPositions()
+  end
+
+  -- Update right dial (dial on left, keyboard on right)
+  if self.right_dial then
+    self.right_dial.config.baseX = center_x - 50
+    self.right_dial.config.baseY = height * 0.70
+    self.right_dial.config.visualizerX = left_margin + 60
+    self.right_dial.config.visualizerY = height * 0.70
+    self.right_dial.key_positions = self.right_dial:buildKeyPositions()
+  end
 end
 
 -- Update input menu state and return selected word if any
@@ -126,7 +166,7 @@ function InputMenu:draw()
   if self.left_dial then self.left_dial:draw() end
   if self.right_dial then self.right_dial:draw() end
 
-  -- Draw region indicators
+  -- Draw region indicators (aligned to bottom)
   local left_region = self.left_dial and self.left_dial:get_region()
   local right_region = self.right_dial and self.right_dial:get_region()
 
@@ -170,12 +210,12 @@ function InputMenu:draw()
     )
   end
 
-  -- Draw filtered count
+  -- Draw filtered count (above wheel)
   love.graphics.setColor(0.7, 0.7, 0.7)
   love.graphics.printf(
     string.format("Filtered: %d", #self.filtered),
     self.config.x,
-    30,
+    self.config.height * 0.02,
     self.config.width,
     "center"
   )
@@ -187,17 +227,17 @@ function InputMenu:draw()
 
   -- Draw mode indicator (with positioning bounds for right half)
   if self.selection_wheel then
-    self.selection_wheel:draw_mode_indicator(self.mode, self.config.x, self.config.width)
+    self.selection_wheel:draw_mode_indicator(self.mode, self.config.x, self.config.width, self.config.height)
   end
 
   -- Draw current selection
   if self.selection_wheel then
-    self.selection_wheel:draw_current_selection(self.filtered, self.config.x, self.config.width)
+    self.selection_wheel:draw_current_selection(self.filtered, self.config.x, self.config.width, self.config.height)
   end
 
   -- Draw pagination info in select mode
   if self.mode == "select" and self.selection_wheel then
-    self.selection_wheel:draw_pagination_info(self.filtered, self.config.x, self.config.width)
+    self.selection_wheel:draw_pagination_info(self.filtered, self.config.x, self.config.width, self.config.height)
   end
 end
 
