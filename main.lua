@@ -1,4 +1,5 @@
-local Filter = require("filter")
+local Filter = require("lib.filter")
+local Dial = require("ui.dial")
 
 -- State
 local words = {}
@@ -27,152 +28,19 @@ local RADIAL_RADIUS = 90
 -- Mode: "filter" or "select"
 local mode = "filter"
 
--- Keyboard display properties
-local keySize = 22
-local keySpacing = 3
-local keyPitch = 25
+-- Dial instances (initialized in love.load)
+local left_dial = nil
+local right_dial = nil
 
--- Full QWERTY keyboard layout (same for both sides)
-local keyboardRows = {
-  { "q", "w", "e", "r", "t", "y", "u", "i", "o", "p" },
-  { "a", "s", "d", "f", "g", "h", "j", "k", "l" },
-  { "z", "x", "c", "v", "b", "n", "m" }
-}
-
--- Left keyboard definition
-local leftKeyboard = {
-  rows = keyboardRows,
-  baseX = 20,
-  baseY = 430
-}
-
--- Right keyboard definition
-local rightKeyboard = {
-  rows = keyboardRows,
-  baseX = 520,
-  baseY = 430
-}
-
--- Key position lookup tables (built in love.load)
-local leftKeyPositions = {}
-local rightKeyPositions = {}
-
--- State for highlighted keys and regions
-local left_highlighted_key = "g"
-local right_highlighted_key = "g"
-local left_region = nil
-local right_region = nil
-
--- Build screen positions for keyboard keys
-function buildKeyPositions(keyboard)
-  local positions = {}
-  local rowY = keyboard.baseY
-
-  for rowIndex, row in ipairs(keyboard.rows) do
-    local numKeys = #row
-    local rowWidth = numKeys * keyPitch - keySpacing
-    local maxRowWidth = 10 * keyPitch - keySpacing  -- Width of 10-key row
-    local rowStartX = keyboard.baseX + (maxRowWidth - rowWidth) / 2  -- Center each row
-
-    for colIndex, key in ipairs(row) do
-      local x = rowStartX + (colIndex - 1) * keyPitch
-      local y = rowY
-      positions[key] = { x = x, y = y }
-    end
-
-    rowY = rowY + keyPitch
-  end
-
-  return positions
-end
-
--- Check if key is in region array
-local function key_in_region(key, region)
-  if not region then return false end
-  for _, k in ipairs(region) do
-    if k == key then return true end
-  end
-  return false
-end
-
--- Draw a single keyboard key
-function drawKey(x, y, keyChar, isHighlighted, isInRegion)
-  if isHighlighted then
-    -- Highlighted key (primary selection)
-    love.graphics.setColor(0.8, 0.6, 0.1)
-    love.graphics.rectangle("fill", x, y, keySize, keySize)
-    love.graphics.setColor(1.0, 0.8, 0.2)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x, y, keySize, keySize)
-    love.graphics.setColor(1, 1, 1)
-  elseif isInRegion then
-    -- Key in region (included in filter)
-    love.graphics.setColor(0.3, 0.5, 0.3)
-    love.graphics.rectangle("fill", x, y, keySize, keySize)
-    love.graphics.setColor(0.5, 0.7, 0.5)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x, y, keySize, keySize)
-    love.graphics.setColor(0.9, 0.9, 0.9)
-  else
-    -- Normal key
-    love.graphics.setColor(0.2, 0.2, 0.2)
-    love.graphics.rectangle("fill", x, y, keySize, keySize)
-    love.graphics.setColor(0.4, 0.4, 0.4)
-    love.graphics.setLineWidth(2)
-    love.graphics.rectangle("line", x, y, keySize, keySize)
-    love.graphics.setColor(0.8, 0.8, 0.8)
-  end
-
-  -- Draw centered text
-  local font = love.graphics.getFont()
-  local textWidth = font:getWidth(keyChar)
-  local textHeight = font:getHeight()
-  love.graphics.print(keyChar, x + (keySize - textWidth) / 2, y + (keySize - textHeight) / 2)
-end
-
--- Draw full keyboard with highlighting
-function drawKeyboard(keyboard, keyPositions, highlightedKey, region)
-  for _, row in ipairs(keyboard.rows) do
-    for _, key in ipairs(row) do
-      local pos = keyPositions[key]
-      if pos then
-        local isHighlighted = (key == highlightedKey)
-        local isInRegion = key_in_region(key, region) and not isHighlighted
-        drawKey(pos.x, pos.y, key, isHighlighted, isInRegion)
-      end
-    end
-  end
-end
-
--- Draw stick position visualizer
-function draw_stick_visualizer(cx, cy, stick, label)
-  local radius = 40
-
-  -- Outer ring
-  love.graphics.setColor(0.3, 0.3, 0.35)
-  love.graphics.circle("line", cx, cy, radius)
-
-  -- Stick position
-  love.graphics.setColor(0.9, 0.3, 0.3)
-  love.graphics.circle("fill",
-    cx + stick.x * radius * 0.8,
-    cy + stick.y * radius * 0.8,
-    6
-  )
-
-  -- Label
-  love.graphics.setColor(0.6, 0.6, 0.6)
-  love.graphics.printf(label, cx - 30, cy + radius + 5, 60, "center")
-end
 
 function love.load()
   -- Set window to full screen dimensions
   local desktop_width, desktop_height = love.window.getDesktopDimensions()
-  love.window.setMode(desktop_width, desktop_height, {resizable = true})
+  love.window.setMode(desktop_width, desktop_height, { resizable = true })
 
   -- Set Fira Mono font with better rendering quality
   local font = love.graphics.newFont("FiraMonoNerdFont-Regular.otf", 14, "normal")
-  font:setFilter("nearest", "nearest")  -- Crisp pixel-perfect rendering
+  font:setFilter("nearest", "nearest") -- Crisp pixel-perfect rendering
   love.graphics.setFont(font)
 
   -- Load word list
@@ -199,9 +67,25 @@ function love.load()
   print("Loaded " .. #words .. " words")
   filtered = words
 
-  -- Build key position lookup tables
-  leftKeyPositions = buildKeyPositions(leftKeyboard)
-  rightKeyPositions = buildKeyPositions(rightKeyboard)
+  -- Create and initialize dial instances
+  left_dial = Dial.new({
+    baseX = 20,
+    baseY = 430,
+    visualizerX = 145,
+    visualizerY = 340,
+    label = "START"
+  })
+
+  right_dial = Dial.new({
+    baseX = 520,
+    baseY = 430,
+    visualizerX = 655,
+    visualizerY = 340,
+    label = "END"
+  })
+
+  left_dial:load()
+  right_dial:load()
 end
 
 function love.joystickadded(j)
@@ -239,13 +123,13 @@ function love.update(dt)
   local right_vx = right_stick.x * maxDistance
   local right_vy = right_stick.y * maxDistance
 
-  -- Get highlighted keys (for visual display) - both use same keyboard layout
-  left_highlighted_key = Filter.get_closest_key(left_vx, left_vy, Filter.keyboard_virtual_positions, Filter.center_key)
-  right_highlighted_key = Filter.get_closest_key(right_vx, right_vy, Filter.keyboard_virtual_positions, Filter.center_key)
+  -- Update dials
+  left_dial:update(left_vx, left_vy)
+  right_dial:update(right_vx, right_vy)
 
-  -- Get key regions for filtering
-  left_region = Filter.get_key_region(left_vx, left_vy, Filter.keyboard_virtual_positions, Filter.center_key)
-  right_region = Filter.get_key_region(right_vx, right_vy, Filter.keyboard_virtual_positions, Filter.center_key)
+  -- Get regions for filtering
+  local left_region = left_dial:get_region()
+  local right_region = right_dial:get_region()
 
   if mode == "filter" then
     -- Live filtering using letter regions
@@ -319,15 +203,14 @@ end
 function love.draw()
   love.graphics.setBackgroundColor(0.1, 0.1, 0.12)
 
-  -- Draw stick visualizers
-  draw_stick_visualizer(145, 340, left_stick, "START")
-  draw_stick_visualizer(655, 340, right_stick, "END")
-
-  -- Draw full QWERTY keyboards
-  drawKeyboard(leftKeyboard, leftKeyPositions, left_highlighted_key, left_region)
-  drawKeyboard(rightKeyboard, rightKeyPositions, right_highlighted_key, right_region)
+  -- Draw dials (includes keyboards and visualizers)
+  left_dial:draw()
+  right_dial:draw()
 
   -- Draw region indicator text
+  local left_region = left_dial:get_region()
+  local right_region = right_dial:get_region()
+
   love.graphics.setColor(0.6, 0.8, 0.6)
   if left_region then
     love.graphics.printf("Start: " .. table.concat(left_region, ", "), 20, 510, 250, "center")
