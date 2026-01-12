@@ -166,6 +166,10 @@ function draw_stick_visualizer(cx, cy, stick, label)
 end
 
 function love.load()
+  -- Set window to full screen dimensions
+  local desktop_width, desktop_height = love.window.getDesktopDimensions()
+  love.window.setMode(desktop_width, desktop_height, {resizable = true})
+
   -- Set Fira Mono font with better rendering quality
   local font = love.graphics.newFont("FiraMonoNerdFont-Regular.otf", 14, "normal")
   font:setFilter("nearest", "nearest")  -- Crisp pixel-perfect rendering
