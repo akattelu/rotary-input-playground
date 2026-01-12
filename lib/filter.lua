@@ -51,9 +51,10 @@ end
 function Filter.get_key_region(stick_x, stick_y, virtual_positions, center_key)
   local magnitude = math.sqrt(stick_x * stick_x + stick_y * stick_y)
 
-  -- If near center, return nil (no filter applied)
+  -- If near center, use center position for region calculation
   if magnitude < CENTER_DEADZONE then
-    return nil
+    stick_x = 0
+    stick_y = 0
   end
 
   -- Calculate distances to all keys

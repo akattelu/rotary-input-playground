@@ -60,6 +60,11 @@ function love.load()
   left_dial:load()
   right_dial:load()
 
+  -- Apply initial filtering with default regions (stationary stick position)
+  local left_region = left_dial:get_region()
+  local right_region = right_dial:get_region()
+  filtered = Filter.apply(words, left_region, right_region)
+
   -- Create and initialize selection wheel
   selection_wheel = SelectionWheel.new({
     cx = 400,

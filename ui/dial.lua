@@ -46,7 +46,12 @@ end
 function Dial:load()
   self.key_positions = self:buildKeyPositions()
   self.highlighted_key = "g"  -- default center
-  self.region = nil
+  -- Initialize region around center key for stationary stick position
+  self.region = Filter.get_key_region(
+    0, 0,  -- center position
+    Filter.keyboard_virtual_positions,
+    Filter.center_key
+  )
 end
 
 -- Update highlighted key and region based on stick position
