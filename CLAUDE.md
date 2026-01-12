@@ -16,6 +16,19 @@ love .
 
 ## Architecture
 
+### Code Organization
+
+This project follows a **component-driven development pattern**:
+
+- **`ui/`**: Self-contained UI components (e.g., `ui/dial.lua` - keyboard dial with visualizer)
+- **`lib/`**: Helper functions, utilities, and classes (e.g., `lib/filter.lua` - filtering logic)
+- **`main.lua`**: Application orchestration - coordinates components and manages global state
+
+When adding features:
+- Extract reusable UI elements into `ui/` components with their own state and rendering
+- Move shared logic and utilities into `lib/` modules
+- Keep `main.lua` focused on coordination and high-level flow
+
 ### Two-Mode System
 
 1. **Filter Mode** (default): Live filtering as joysticks move
@@ -31,14 +44,20 @@ love .
 
 ### Core Components
 
-- **main.lua**: Main application loop, state management, UI rendering
+- **main.lua**: Main application loop and state orchestration
   - Manages `mode` state ("filter" or "select")
   - Tracks `sentence` (accumulated words) and `filtered` (current matches)
-  - `buildKeyPositions()`: Calculates screen positions for keyboard keys
-  - `drawKeyboard()`: Renders full keyboard with highlighting
+  - Coordinates `left_dial` and `right_dial` component instances
   - `get_radial_selection()`: Maps stick angle to radial menu position
 
-- **filter.lua**: Letter-based filtering system with region support
+- **ui/dial.lua**: Keyboard dial UI component
+  - Self-contained QWERTY keyboard with stick visualizer
+  - `Dial.new(config)`: Creates dial instance with position/label configuration
+  - `Dial:update(vx, vy)`: Updates highlighted key and region from stick position
+  - `Dial:draw()`: Renders keyboard and visualizer
+  - `Dial:get_region()`: Returns current filter region
+
+- **lib/filter.lua**: Letter-based filtering system with region support
   - `keyboard_virtual_positions`: Virtual coordinates for all 26 keys (used for distance calculation)
   - `Filter.get_closest_key()`: Returns single closest key to stick position
   - `Filter.get_key_region()`: Returns array of N closest keys for filtering
@@ -55,8 +74,7 @@ love .
 - `selected_index`: Index into filtered list for radial selection
 - `sentence`: Array of selected words
 - `left_stick`/`right_stick`: Normalized joystick positions (-1 to 1)
-- `left_highlighted_key`/`right_highlighted_key`: Currently highlighted key on each keyboard
-- `left_region`/`right_region`: Array of keys included in current filter
+- `left_dial`/`right_dial`: Dial component instances (manage their own highlighted keys and regions)
 - `was_selecting`: Tracks if user was actively selecting with right stick (for release detection)
 
 ### Control Constants
@@ -68,7 +86,7 @@ love .
 
 ## Development Notes
 
-The virtual key positions in filter.lua map joystick coordinates to QWERTY keyboard layout. The coordinate system is -100 to 100, with (0,0) near the center of the keyboard (around 'g').
+The virtual key positions in lib/filter.lua map joystick coordinates to QWERTY keyboard layout. The coordinate system is -100 to 100, with (0,0) near the center of the keyboard (around 'g').
 
 Both joysticks use the same full QWERTY keyboard layout, allowing any letter to be selected for either word beginnings or endings.
 
