@@ -1,85 +1,30 @@
 local Filter = require("lib.filter")
 local Dial = require("ui.dial")
 local Corpus = require("lib.corpus")
+local SelectionWheel = require("ui.selection_wheel")
 
 -- State
 local words = {}
 local filtered = {}
-local selected_index = 1
-local page = 1      -- current page in select mode (1-indexed)
 local joystick = nil
 local sentence = {} -- accumulated selected words
 
 -- Stick state (normalized -1 to 1)
 local left_stick = { x = 0, y = 0 }
 local right_stick = { x = 0, y = 0 }
-local was_selecting = false -- track if sticks were engaged in select mode
 
 -- Trigger state (for edge detection)
 local zr_prev = 0
 local TRIGGER_THRESHOLD = 0.5
 
--- Deadzone
-local DEADZONE = 0.3
-
--- Display settings
-local VISIBLE_COUNT = 8 -- candidates shown in radial menu
-local RADIAL_RADIUS = 90
-
 -- Mode: "filter" or "select"
 local mode = "filter"
 
--- Dial instances (initialized in love.load)
+-- Component instances (initialized in love.load)
 local left_dial = nil
 local right_dial = nil
+local selection_wheel = nil
 
--- Helper functions
-local function get_radial_selection(stick)
-  local magnitude = math.sqrt(stick.x ^ 2 + stick.y ^ 2)
-  if magnitude < 0.5 then
-    return nil
-  end
-  -- Adjust normalization to match drawing offset (-π/2)
-  local angle = math.atan2(stick.y, stick.x)
-  local normalized = (angle + math.pi / 2) / (2 * math.pi)
-  local index = math.floor(normalized * VISIBLE_COUNT) % VISIBLE_COUNT
-  return index + 1
-end
-
-local function draw_radial_menu(cx, cy)
-  -- Calculate which words to show based on current page
-  local start_idx = (page - 1) * VISIBLE_COUNT + 1
-  local end_idx = math.min(page * VISIBLE_COUNT, #filtered)
-
-  local visible = {}
-  for i = start_idx, end_idx do
-    table.insert(visible, filtered[i])
-  end
-
-  if #visible == 0 then
-    love.graphics.setColor(0.5, 0.3, 0.3)
-    love.graphics.printf("No matches", cx - 50, cy, 100, "center")
-    return
-  end
-
-  for i, word in ipairs(visible) do
-    local angle = (i - 1) * (2 * math.pi / VISIBLE_COUNT) - math.pi / 2
-    local wx = cx + math.cos(angle) * RADIAL_RADIUS
-    local wy = cy + math.sin(angle) * RADIAL_RADIUS
-
-    if i == selected_index then
-      love.graphics.setColor(0.3, 0.7, 0.9)
-      love.graphics.circle("fill", wx, wy, 35)
-      love.graphics.setColor(1, 1, 1)
-    else
-      love.graphics.setColor(0.25, 0.25, 0.3)
-      love.graphics.circle("fill", wx, wy, 30)
-      love.graphics.setColor(0.8, 0.8, 0.8)
-    end
-
-    love.graphics.printf(word, wx - 40, wy - 8, 80, "center")
-  end
-end
 
 function love.load()
   -- Set window to full screen dimensions
@@ -114,13 +59,23 @@ function love.load()
 
   left_dial:load()
   right_dial:load()
+
+  -- Create and initialize selection wheel
+  selection_wheel = SelectionWheel.new({
+    cx = 400,
+    cy = 280,
+    visible_count = 8,
+    radial_radius = 90,
+    deadzone = 0.3
+  })
+  selection_wheel:load()
 end
 
 function love.joystickadded(j)
   joystick = j
 end
 
-function love.update(_dt)
+function love.update()
   if not joystick then return end
 
   -- Read stick positions
@@ -135,10 +90,8 @@ function love.update(_dt)
   -- Detect ZR press (rising edge)
   if zr > TRIGGER_THRESHOLD and zr_prev <= TRIGGER_THRESHOLD then
     -- ZR just pressed
-    if mode == "select" then
-      local total_pages = math.ceil(#filtered / VISIBLE_COUNT)
-      page = (page % total_pages) + 1
-      print("Page " .. page .. " / " .. total_pages)
+    if mode == "select" and selection_wheel then
+      selection_wheel:advance_page(#filtered)
     end
   end
   zr_prev = zr
@@ -161,50 +114,40 @@ function love.update(_dt)
   if mode == "filter" then
     -- Live filtering using letter regions
     filtered = Filter.apply(words, left_region, right_region)
-  elseif mode == "select" then
-    -- In select mode, stick position picks from visible candidates
-    local selection = get_radial_selection(right_stick)
-    if selection then
-      selected_index = selection
-      was_selecting = true
-    end
+  elseif mode == "select" and selection_wheel then
+    -- In select mode, update selection based on stick position
+    selection_wheel:update_selection(right_stick)
 
-    -- Check if right stick has been released
-    local right_mag = math.sqrt(right_stick.x ^ 2 + right_stick.y ^ 2)
-
-    if was_selecting and right_mag < DEADZONE then
-      -- Accept the selected word (offset by current page)
-      local actual_index = (page - 1) * VISIBLE_COUNT + selected_index
-      if filtered[actual_index] then
-        table.insert(sentence, filtered[actual_index])
-        print("Added: " .. filtered[actual_index])
+    -- Check if right stick has been released to accept selection
+    if selection_wheel:check_release(right_stick) then
+      local word = selection_wheel:get_selected_word(filtered)
+      if word then
+        table.insert(sentence, word)
+        print("Added: " .. word)
       end
       -- Return to filter mode
       mode = "filter"
-      page = 1
-      was_selecting = false
+      selection_wheel:reset()
     end
   end
 end
 
-function love.gamepadpressed(_j, button)
-  if button == "rightshoulder" then
+function love.gamepadpressed(_, button)
+  if button == "rightshoulder" and selection_wheel then
     if mode == "filter" then
       -- Enter select mode
       mode = "select"
-      page = 1
-      was_selecting = false
+      selection_wheel:reset()
     elseif mode == "select" then
       -- Accept the selected word when RB is pressed again
-      local actual_index = (page - 1) * VISIBLE_COUNT + selected_index
-      if filtered[actual_index] then
-        table.insert(sentence, filtered[actual_index])
-        print("Added: " .. filtered[actual_index])
+      local word = selection_wheel:get_selected_word(filtered)
+      if word then
+        table.insert(sentence, word)
+        print("Added: " .. word)
       end
       -- Return to filter mode
       mode = "filter"
-      page = 1
-      was_selecting = false
+      selection_wheel:reset()
     end
   elseif button == "b" then
     -- Delete last word from sentence
@@ -250,8 +193,9 @@ function love.draw()
   )
 
   -- Draw mode indicator
-  love.graphics.setColor(0.5, 0.8, 0.5)
-  love.graphics.printf("Mode: " .. mode:upper(), 0, 55, 800, "center")
+  if selection_wheel then
+    selection_wheel:draw_mode_indicator(mode)
+  end
 
   -- Draw sentence
   love.graphics.setColor(1, 1, 1)
@@ -263,25 +207,18 @@ function love.draw()
   love.graphics.printf(sentence_text, 20, 85, 760, "left")
 
   -- Draw radial selection menu (center)
-  draw_radial_menu(400, 280)
+  if selection_wheel then
+    selection_wheel:draw(filtered)
+  end
 
   -- Draw current selection prominently
-  local actual_index = (page - 1) * VISIBLE_COUNT + selected_index
-  if filtered[actual_index] then
-    love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(filtered[actual_index], 0, 130, 800, "center")
+  if selection_wheel then
+    selection_wheel:draw_current_selection(filtered)
   end
 
   -- Draw pagination info in select mode
-  if mode == "select" and #filtered > VISIBLE_COUNT then
-    love.graphics.setColor(0.6, 0.6, 0.7)
-    local total_pages = math.ceil(#filtered / VISIBLE_COUNT)
-    local start_idx = (page - 1) * VISIBLE_COUNT + 1
-    local end_idx = math.min(page * VISIBLE_COUNT, #filtered)
-    love.graphics.printf(
-      string.format("Page %d/%d  (%d-%d of %d)", page, total_pages, start_idx, end_idx, #filtered),
-      0, 155, 800, "center"
-    )
+  if mode == "select" and selection_wheel then
+    selection_wheel:draw_pagination_info(filtered)
   end
 
   -- Instructions
