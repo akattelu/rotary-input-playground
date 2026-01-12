@@ -124,22 +124,28 @@ function SelectionWheel:draw(filtered)
 end
 
 -- Draw mode indicator text
-function SelectionWheel:draw_mode_indicator(mode)
+function SelectionWheel:draw_mode_indicator(mode, x, width)
+  x = x or 0
+  width = width or 800
   love.graphics.setColor(0.5, 0.8, 0.5)
-  love.graphics.printf("Mode: " .. mode:upper(), 0, 55, 800, "center")
+  love.graphics.printf("Mode: " .. mode:upper(), x, 55, width, "center")
 end
 
 -- Draw current selection prominently at top
-function SelectionWheel:draw_current_selection(filtered)
+function SelectionWheel:draw_current_selection(filtered, x, width)
+  x = x or 0
+  width = width or 800
   local actual_index = (self.page - 1) * self.config.visible_count + self.selected_index
   if filtered[actual_index] then
     love.graphics.setColor(1, 1, 1)
-    love.graphics.printf(filtered[actual_index], 0, 130, 800, "center")
+    love.graphics.printf(filtered[actual_index], x, 130, width, "center")
   end
 end
 
 -- Draw pagination information
-function SelectionWheel:draw_pagination_info(filtered)
+function SelectionWheel:draw_pagination_info(filtered, x, width)
+  x = x or 0
+  width = width or 800
   if #filtered > self.config.visible_count then
     love.graphics.setColor(0.6, 0.6, 0.7)
     local total_pages = math.ceil(#filtered / self.config.visible_count)
@@ -147,7 +153,7 @@ function SelectionWheel:draw_pagination_info(filtered)
     local end_idx = math.min(self.page * self.config.visible_count, #filtered)
     love.graphics.printf(
       string.format("Page %d/%d  (%d-%d of %d)", self.page, total_pages, start_idx, end_idx, #filtered),
-      0, 155, 800, "center"
+      x, 155, width, "center"
     )
   end
 end
