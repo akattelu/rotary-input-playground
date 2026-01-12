@@ -126,3 +126,5 @@ The application expects a gamepad with standard layout:
 - **B button**: Delete last word from sentence
 - **Left/Right analog sticks**: Control keyboard filtering and selection
 - **Right stick release**: Accept selected word in select mode
+
+During development the lick.lua library will provide hot-reloading capability. So, you don't need to run `love .` to test the game because the developer will be testing it via a single hot-reloaded active session.

@@ -15,6 +15,16 @@ local input_menu = nil
 local input_menu_visible = false
 
 
+-- Hot reloading (disabled for web builds)
+local isWeb = love.system.getOS() == "Web"
+if not isWeb then
+  local lick = require "lick"
+  lick.reset = true
+  lick.updateAllFiles = true
+  lick.clearPackages = true
+end
+
+
 function love.load()
   -- Set window to full screen dimensions
   local desktop_width, desktop_height = love.window.getDesktopDimensions()
