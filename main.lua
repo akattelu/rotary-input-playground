@@ -1,5 +1,8 @@
 local Corpus = require("lib.corpus")
 local InputMenu = require("ui.input_menu")
+local Syntax = require("lib.syntax")
+
+Syntax.test()
 
 -- State
 local words = {}
