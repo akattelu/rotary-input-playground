@@ -2,6 +2,12 @@ local FileViewer = {}
 FileViewer.__index = FileViewer
 
 local Highlighter = require("lib.highlighter")
+local Syntax = require("lib.syntax")
+
+-- Constants
+local DEADZONE = 0.3
+local CURSOR_SPEED = 300  -- pixels per second at full stick deflection
+local SCROLL_EDGE_LINES = 4  -- scroll when cursor within this many lines of edge
 
 -- Constructor
 function FileViewer.new(config)
@@ -28,6 +34,15 @@ function FileViewer.new(config)
   self.filename = ""
   self.highlighted_lines = {}
 
+  -- Syntax buffer for node queries
+  self.syntax_buffer = nil
+  self.source_text = nil
+
+  -- Cursor state
+  self.cursor = { x = 100, y = 100 }  -- screen coords relative to component
+  self.highlighted_node = nil  -- {start_row, start_col, end_row, end_col}
+  self.scroll_accumulator = 0  -- accumulates fractional scroll amounts
+
   return self
 end
 
@@ -45,6 +60,14 @@ end
 -- Set file content to display
 -- file: { path, name, content, language }
 function FileViewer:set_file(file)
+  -- Clean up previous syntax buffer
+  if self.syntax_buffer then
+    self.syntax_buffer:destroy()
+    self.syntax_buffer = nil
+  end
+  self.source_text = nil
+  self.highlighted_node = nil
+
   if not file then
     self.filename = ""
     self.highlighted_lines = {}
@@ -59,6 +82,17 @@ function FileViewer:set_file(file)
   if file.content then
     self.highlighted_lines = Highlighter.highlight(file.content, file.language)
     self.total_lines = #self.highlighted_lines
+    self.source_text = file.content
+
+    -- Create syntax buffer for node queries
+    local language = file.language or "lua"
+    if Syntax.languages[language] then
+      local ok, buf = pcall(Syntax.Buffer.new, language)
+      if ok then
+        buf:set_text(file.content)
+        self.syntax_buffer = buf
+      end
+    end
   else
     self.highlighted_lines = {}
     self.total_lines = 0
@@ -66,6 +100,7 @@ function FileViewer:set_file(file)
 
   -- Reset scroll
   self.scroll_offset = 0
+  self.scroll_accumulator = 0
 end
 
 -- Handle resize
@@ -83,19 +118,86 @@ end
 
 -- Scroll by delta lines (positive = down, negative = up)
 function FileViewer:scroll(delta)
-  local max_scroll = math.max(0, self.total_lines - self.visible_lines)
-  self.scroll_offset = math.max(0, math.min(max_scroll, self.scroll_offset + delta))
+  -- Accumulate fractional scroll
+  self.scroll_accumulator = self.scroll_accumulator + delta
+
+  -- Only scroll by whole lines
+  local whole_lines = math.floor(self.scroll_accumulator)
+  if whole_lines ~= 0 then
+    self.scroll_accumulator = self.scroll_accumulator - whole_lines
+    local max_scroll = math.max(0, self.total_lines - self.visible_lines)
+    self.scroll_offset = math.max(0, math.min(max_scroll, self.scroll_offset + whole_lines))
+  end
 end
 
 -- Scroll to specific line (0-indexed)
 function FileViewer:scroll_to(line_number)
   local max_scroll = math.max(0, self.total_lines - self.visible_lines)
-  self.scroll_offset = math.max(0, math.min(max_scroll, line_number))
+  self.scroll_offset = math.floor(math.max(0, math.min(max_scroll, line_number)))
+  self.scroll_accumulator = 0
 end
 
--- Update (for smooth scrolling, future use)
-function FileViewer:update()
-  -- Currently no-op
+-- Update cursor position and highlighted node
+-- stick: {x, y} normalized -1 to 1
+function FileViewer:update(stick, dt)
+  dt = dt or love.timer.getDelta()
+
+  if not stick then return end
+
+  local cfg = self.config
+  local code_y = cfg.header_height
+  local code_height = cfg.height - cfg.header_height
+
+  -- Apply deadzone
+  local magnitude = math.sqrt(stick.x * stick.x + stick.y * stick.y)
+  if magnitude < DEADZONE then
+    stick = { x = 0, y = 0 }
+  end
+
+  -- Move cursor
+  self.cursor.x = self.cursor.x + stick.x * CURSOR_SPEED * dt
+  self.cursor.y = self.cursor.y + stick.y * CURSOR_SPEED * dt
+
+  -- Clamp cursor to code area bounds
+  self.cursor.x = math.max(cfg.gutter_width + cfg.padding, math.min(cfg.width - 20, self.cursor.x))
+  self.cursor.y = math.max(code_y, math.min(code_y + code_height - cfg.line_height, self.cursor.y))
+
+  -- Edge scrolling
+  local scroll_threshold = SCROLL_EDGE_LINES * cfg.line_height
+
+  -- Scroll up when near top
+  if self.cursor.y - code_y < scroll_threshold and self.scroll_offset > 0 then
+    local proximity = 1 - ((self.cursor.y - code_y) / scroll_threshold)
+    self:scroll(-proximity * 0.5)
+  end
+
+  -- Scroll down when near bottom
+  local bottom_dist = (code_y + code_height) - self.cursor.y
+  if bottom_dist < scroll_threshold and self.scroll_offset < self.total_lines - self.visible_lines then
+    local proximity = 1 - (bottom_dist / scroll_threshold)
+    self:scroll(proximity * 0.5)
+  end
+
+  -- Convert cursor screen position to line/column
+  local line = math.floor((self.cursor.y - code_y) / cfg.line_height) + 1 + self.scroll_offset
+  local font = love.graphics.getFont()
+  local char_width = font:getWidth("m")  -- monospace font
+  local column = math.floor((self.cursor.x - cfg.gutter_width - cfg.padding) / char_width)
+
+  -- Query syntax node at cursor position (0-indexed for tree-sitter)
+  self.highlighted_node = nil
+  if self.syntax_buffer and line >= 1 and line <= self.total_lines then
+    local root = self.syntax_buffer:root_node()
+    if root then
+      local node = Syntax.node_at_point(root, line - 1, math.max(0, column))
+      if node then
+        local range = Syntax.node_range(node)
+        if range then
+          self.highlighted_node = range
+        end
+      end
+    end
+  end
 end
 
 -- Draw the file viewer
@@ -134,6 +236,32 @@ function FileViewer:draw()
 
   -- Set scissor for clipping
   love.graphics.setScissor(cfg.x, code_y, cfg.width, code_height)
+
+  -- Draw highlighted node background
+  if self.highlighted_node then
+    local font = love.graphics.getFont()
+    local char_width = font:getWidth("m")
+    local node = self.highlighted_node
+
+    love.graphics.setColor(0.3, 0.5, 0.7, 0.3)
+
+    -- Draw highlight for each line the node spans
+    for row = node.start_row, node.end_row do
+      local line_idx = row + 1  -- Convert 0-indexed to 1-indexed
+      local visible_line = line_idx - self.scroll_offset
+
+      if visible_line >= 1 and visible_line <= self.visible_lines + 1 then
+        local y = code_y + (visible_line - 1) * cfg.line_height
+        local start_col = (row == node.start_row) and node.start_col or 0
+        local end_col = (row == node.end_row) and node.end_col or 1000
+
+        local x = cfg.x + cfg.gutter_width + cfg.padding + start_col * char_width
+        local width = (end_col - start_col) * char_width
+
+        love.graphics.rectangle("fill", x, y, width, cfg.line_height)
+      end
+    end
+  end
 
   -- Draw lines
   for i = 1, self.visible_lines + 1 do
@@ -187,6 +315,10 @@ function FileViewer:draw()
     love.graphics.setColor(0.4, 0.4, 0.45, 1)
     love.graphics.rectangle("fill", cfg.x + cfg.width - 8, indicator_y, 6, indicator_height)
   end
+
+  -- Draw cursor (grey unfilled circle)
+  love.graphics.setColor(0.6, 0.6, 0.6, 1)
+  love.graphics.circle("line", cfg.x + self.cursor.x, cfg.y + self.cursor.y, 8)
 end
 
 return FileViewer

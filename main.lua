@@ -35,6 +35,12 @@ end
 
 
 function love.load()
+  -- Clean up previous file viewer if hot-reloading
+  if file_viewer and file_viewer.syntax_buffer then
+    file_viewer.syntax_buffer:destroy()
+  end
+  file_viewer = nil
+
   -- Set window to full screen dimensions
   local desktop_width, desktop_height = love.window.getDesktopDimensions()
   love.window.setMode(desktop_width, desktop_height, { resizable = true })
@@ -90,18 +96,17 @@ function love.joystickadded(j)
   joystick = j
 end
 
-function love.update()
+function love.update(dt)
   if not joystick then return end
 
-  -- Only update input menu in input mode
-  if mode == "input" and input_menu then
-    -- Read stick positions
-    left_stick.x = joystick:getGamepadAxis("leftx") or 0
-    left_stick.y = joystick:getGamepadAxis("lefty") or 0
-    right_stick.x = joystick:getGamepadAxis("rightx") or 0
-    right_stick.y = joystick:getGamepadAxis("righty") or 0
+  -- Read stick positions
+  left_stick.x = joystick:getGamepadAxis("leftx") or 0
+  left_stick.y = joystick:getGamepadAxis("lefty") or 0
+  right_stick.x = joystick:getGamepadAxis("rightx") or 0
+  right_stick.y = joystick:getGamepadAxis("righty") or 0
 
-    -- Update input menu
+  if mode == "input" and input_menu then
+    -- Update input menu in input mode
     local sticks = { left = left_stick, right = right_stick }
     local selected_word = input_menu:update(words, sticks, joystick)
 
@@ -110,11 +115,9 @@ function love.update()
       table.insert(sentence, selected_word)
       print("Added: " .. selected_word)
     end
-  end
-
-  -- File viewer could update here for smooth scrolling (future)
-  if file_viewer then
-    file_viewer:update()
+  elseif mode == "view" and file_viewer then
+    -- Update file viewer with left stick for cursor control
+    file_viewer:update(left_stick, dt)
   end
 end
 
