@@ -132,6 +132,12 @@ function love.load()
   -- Create command palette picker
   picker = Picker.new({})
   picker:load()
+
+  -- Detect already-connected joystick (important for hot reloading)
+  local joysticks = love.joystick.getJoysticks()
+  if #joysticks > 0 then
+    joystick = joysticks[1]
+  end
 end
 
 function love.resize(w, h)
