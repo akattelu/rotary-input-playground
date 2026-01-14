@@ -8,6 +8,7 @@ local Syntax = require("lib.syntax")
 local DEADZONE = 0.3
 local CURSOR_SPEED = 300  -- pixels per second at full stick deflection
 local SCROLL_EDGE_LINES = 4  -- scroll when cursor within this many lines of edge
+local TRIGGER_THRESHOLD = 0.5  -- threshold for trigger edge detection
 
 -- Constructor
 function FileViewer.new(config)
@@ -43,6 +44,10 @@ function FileViewer.new(config)
   self.highlighted_node = nil  -- {start_row, start_col, end_row, end_col}
   self.scroll_accumulator = 0  -- accumulates fractional scroll amounts
 
+  -- Tree navigation state
+  self.navigated_node = nil  -- locked node for tree navigation (FFI reference)
+  self.trigger_prev = { l2 = 0, r2 = 0 }  -- edge detection for triggers
+
   return self
 end
 
@@ -67,6 +72,7 @@ function FileViewer:set_file(file)
   end
   self.source_text = nil
   self.highlighted_node = nil
+  self.navigated_node = nil
 
   if not file then
     self.filename = ""
@@ -139,64 +145,189 @@ end
 
 -- Update cursor position and highlighted node
 -- stick: {x, y} normalized -1 to 1
-function FileViewer:update(stick, dt)
+-- joystick: optional LÖVE joystick object for trigger input
+function FileViewer:update(stick, dt, joystick)
   dt = dt or love.timer.getDelta()
-
-  if not stick then return end
 
   local cfg = self.config
   local code_y = cfg.header_height
   local code_height = cfg.height - cfg.header_height
 
-  -- Apply deadzone
-  local magnitude = math.sqrt(stick.x * stick.x + stick.y * stick.y)
-  if magnitude < DEADZONE then
-    stick = { x = 0, y = 0 }
+  -- Track if cursor moved (for resetting navigation)
+  local cursor_moved = false
+
+  if stick then
+    -- Apply deadzone
+    local magnitude = math.sqrt(stick.x * stick.x + stick.y * stick.y)
+    if magnitude < DEADZONE then
+      stick = { x = 0, y = 0 }
+    end
+
+    -- Check if stick is active
+    if stick.x ~= 0 or stick.y ~= 0 then
+      cursor_moved = true
+    end
+
+    -- Move cursor
+    self.cursor.x = self.cursor.x + stick.x * CURSOR_SPEED * dt
+    self.cursor.y = self.cursor.y + stick.y * CURSOR_SPEED * dt
+
+    -- Clamp cursor to code area bounds
+    self.cursor.x = math.max(cfg.gutter_width + cfg.padding, math.min(cfg.width - 20, self.cursor.x))
+    self.cursor.y = math.max(code_y, math.min(code_y + code_height - cfg.line_height, self.cursor.y))
+
+    -- Edge scrolling
+    local scroll_threshold = SCROLL_EDGE_LINES * cfg.line_height
+
+    -- Scroll up when near top
+    if self.cursor.y - code_y < scroll_threshold and self.scroll_offset > 0 then
+      local proximity = 1 - ((self.cursor.y - code_y) / scroll_threshold)
+      self:scroll(-proximity * 0.5)
+    end
+
+    -- Scroll down when near bottom
+    local bottom_dist = (code_y + code_height) - self.cursor.y
+    if bottom_dist < scroll_threshold and self.scroll_offset < self.total_lines - self.visible_lines then
+      local proximity = 1 - (bottom_dist / scroll_threshold)
+      self:scroll(proximity * 0.5)
+    end
   end
 
-  -- Move cursor
-  self.cursor.x = self.cursor.x + stick.x * CURSOR_SPEED * dt
-  self.cursor.y = self.cursor.y + stick.y * CURSOR_SPEED * dt
+  -- Handle trigger input for tree navigation
+  if joystick then
+    local l2 = joystick:getGamepadAxis("triggerleft") or 0
+    local r2 = joystick:getGamepadAxis("triggerright") or 0
 
-  -- Clamp cursor to code area bounds
-  self.cursor.x = math.max(cfg.gutter_width + cfg.padding, math.min(cfg.width - 20, self.cursor.x))
-  self.cursor.y = math.max(code_y, math.min(code_y + code_height - cfg.line_height, self.cursor.y))
+    -- R2: Expand to parent node
+    if r2 > TRIGGER_THRESHOLD and self.trigger_prev.r2 <= TRIGGER_THRESHOLD then
+      self:expand_selection()
+    end
 
-  -- Edge scrolling
-  local scroll_threshold = SCROLL_EDGE_LINES * cfg.line_height
+    -- L2: Shrink to child node
+    if l2 > TRIGGER_THRESHOLD and self.trigger_prev.l2 <= TRIGGER_THRESHOLD then
+      self:shrink_selection()
+    end
 
-  -- Scroll up when near top
-  if self.cursor.y - code_y < scroll_threshold and self.scroll_offset > 0 then
-    local proximity = 1 - ((self.cursor.y - code_y) / scroll_threshold)
-    self:scroll(-proximity * 0.5)
+    self.trigger_prev = { l2 = l2, r2 = r2 }
   end
 
-  -- Scroll down when near bottom
-  local bottom_dist = (code_y + code_height) - self.cursor.y
-  if bottom_dist < scroll_threshold and self.scroll_offset < self.total_lines - self.visible_lines then
-    local proximity = 1 - (bottom_dist / scroll_threshold)
-    self:scroll(proximity * 0.5)
+  -- Reset navigation if cursor moved
+  if cursor_moved then
+    self.navigated_node = nil
   end
 
-  -- Convert cursor screen position to line/column
-  local line = math.floor((self.cursor.y - code_y) / cfg.line_height) + 1 + self.scroll_offset
-  local font = love.graphics.getFont()
-  local char_width = font:getWidth("m")  -- monospace font
-  local column = math.floor((self.cursor.x - cfg.gutter_width - cfg.padding) / char_width)
+  -- Update highlighted node
+  if self.navigated_node then
+    -- Use the navigated node
+    self.highlighted_node = Syntax.node_range(self.navigated_node)
+  else
+    -- Query syntax node at cursor position
+    self.highlighted_node = nil
+    local line = math.floor((self.cursor.y - code_y) / cfg.line_height) + 1 + self.scroll_offset
+    local font = love.graphics.getFont()
+    local char_width = font:getWidth("m")  -- monospace font
+    local column = math.floor((self.cursor.x - cfg.gutter_width - cfg.padding) / char_width)
 
-  -- Query syntax node at cursor position (0-indexed for tree-sitter)
-  self.highlighted_node = nil
-  if self.syntax_buffer and line >= 1 and line <= self.total_lines then
-    local root = self.syntax_buffer:root_node()
-    if root then
-      local node = Syntax.node_at_point(root, line - 1, math.max(0, column))
-      if node then
-        local range = Syntax.node_range(node)
-        if range then
-          self.highlighted_node = range
+    if self.syntax_buffer and line >= 1 and line <= self.total_lines then
+      local root = self.syntax_buffer:root_node()
+      if root then
+        local node = Syntax.node_at_point(root, line - 1, math.max(0, column))
+        if node then
+          local range = Syntax.node_range(node)
+          if range then
+            self.highlighted_node = range
+          end
         end
       end
     end
+  end
+end
+
+-- Get syntax node at current cursor position
+function FileViewer:get_cursor_node()
+  if not self.syntax_buffer then return nil end
+
+  local cfg = self.config
+  local code_y = cfg.header_height
+  local line = math.floor((self.cursor.y - code_y) / cfg.line_height) + 1 + self.scroll_offset
+  local font = love.graphics.getFont()
+  local char_width = font:getWidth("m")
+  local column = math.floor((self.cursor.x - cfg.gutter_width - cfg.padding) / char_width)
+
+  if line >= 1 and line <= self.total_lines then
+    local root = self.syntax_buffer:root_node()
+    if root then
+      return Syntax.node_at_point(root, line - 1, math.max(0, column))
+    end
+  end
+  return nil
+end
+
+-- Expand selection to parent node
+function FileViewer:expand_selection()
+  local current = self.navigated_node or self:get_cursor_node()
+  if not current then return end
+
+  local parent = Syntax.node_parent(current)
+  -- Keep going up to find a named node
+  while parent and not Syntax.node_is_named(parent) do
+    parent = Syntax.node_parent(parent)
+  end
+
+  if parent then
+    self.navigated_node = parent
+    self.highlighted_node = Syntax.node_range(parent)
+  end
+end
+
+-- Shrink selection to child node containing cursor
+function FileViewer:shrink_selection()
+  local current = self.navigated_node or self:get_cursor_node()
+  if not current then return end
+
+  -- Get cursor position in tree-sitter coordinates (0-indexed)
+  local cfg = self.config
+  local code_y = cfg.header_height
+  local line = math.floor((self.cursor.y - code_y) / cfg.line_height) + 1 + self.scroll_offset
+  local font = love.graphics.getFont()
+  local char_width = font:getWidth("m")
+  local column = math.floor((self.cursor.x - cfg.gutter_width - cfg.padding) / char_width)
+  local cursor_row = line - 1  -- 0-indexed
+  local cursor_col = math.max(0, column)
+
+  -- Find named child that contains the cursor position
+  local best_child = nil
+  for child in Syntax.node_named_children(current) do
+    local range = Syntax.node_range(child)
+    if range then
+      -- Check if cursor is within this child's range
+      local in_range = false
+      if cursor_row > range.start_row and cursor_row < range.end_row then
+        -- Cursor row is strictly between start and end rows
+        in_range = true
+      elseif cursor_row == range.start_row and cursor_row == range.end_row then
+        -- Single-line node: check columns
+        in_range = cursor_col >= range.start_col and cursor_col <= range.end_col
+      elseif cursor_row == range.start_row then
+        -- Cursor on start row of multi-line node
+        in_range = cursor_col >= range.start_col
+      elseif cursor_row == range.end_row then
+        -- Cursor on end row of multi-line node
+        in_range = cursor_col <= range.end_col
+      end
+
+      if in_range then
+        best_child = child
+        break
+      end
+    end
+  end
+
+  -- Fall back to first named child if cursor isn't in any child
+  local child = best_child or Syntax.node_first_named_child(current)
+  if child then
+    self.navigated_node = child
+    self.highlighted_node = Syntax.node_range(child)
   end
 end
 

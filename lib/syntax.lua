@@ -453,6 +453,29 @@ function Syntax.node_child_by_field(node, field_name)
   return child
 end
 
+-- Get first named child of a node
+function Syntax.node_first_named_child(node)
+  if node == nil or ts.ts_node_is_null(node) then
+    return nil
+  end
+  local child = ts.ts_node_named_child(node, 0)
+  if ts.ts_node_is_null(child) then
+    return nil
+  end
+  return child
+end
+
+-- Check if two nodes are equal
+function Syntax.nodes_equal(a, b)
+  if a == nil or b == nil then
+    return false
+  end
+  if ts.ts_node_is_null(a) or ts.ts_node_is_null(b) then
+    return false
+  end
+  return ts.ts_node_eq(a, b)
+end
+
 -- Iterator for children
 function Syntax.node_children(node)
   local count = Syntax.node_child_count(node)

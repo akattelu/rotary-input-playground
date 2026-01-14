@@ -116,8 +116,8 @@ function love.update(dt)
       print("Added: " .. selected_word)
     end
   elseif mode == "view" and file_viewer then
-    -- Update file viewer with left stick for cursor control
-    file_viewer:update(left_stick, dt)
+    -- Update file viewer with left stick for cursor control and triggers for tree navigation
+    file_viewer:update(left_stick, dt, joystick)
   end
 end
 
