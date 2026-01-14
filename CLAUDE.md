@@ -4,9 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Rotary input playground is a LÖVE2D application implementing a dual QWERTY keyboard input system for word selection using dual gamepad joysticks. Each joystick controls a full QWERTY keyboard - left stick filters by word beginnings, right stick filters by word endings. Users point joysticks at letter regions, then select from a radial menu to build sentences.
+Rotary input playground is a LÖVE2D application combining a syntax-highlighted file viewer with a dual QWERTY keyboard input system for word selection using gamepad joysticks.
 
-The app starts with a blank screen. Press X (Nintendo Y/PlayStation Square) to summon the input menu on the right half of the screen. The goal is to be a playground for alternate input systems with a standard game controller.
+**File Viewer (left half):** Displays `.lua` files from the current directory with tree-sitter syntax highlighting. Cycle through files with L1/R1.
+
+**Input Menu (right half):** Dual-stick word selection. Left stick filters by word beginnings, right stick filters by endings. Select from a radial menu to build sentences.
+
+Press X to toggle between **view mode** (file browsing) and **input mode** (word selection).
 
 ## Running the Application
 
@@ -22,37 +26,44 @@ love .
 This project follows a **component-driven development pattern**:
 
 - **`ui/`**: Self-contained UI components
+  - `ui/file_viewer.lua` - Syntax-highlighted code display with line numbers and scrolling
   - `ui/input_menu.lua` - Groups selection wheel and both keyboard dials, manages filtering/selection modes
   - `ui/dial.lua` - Individual keyboard dial with stick visualizer
   - `ui/selection_wheel.lua` - Radial word selection menu
-- **`lib/`**: Helper functions, utilities, and classes (e.g., `lib/filter.lua` - filtering logic, `lib/corpus.lua` - word loading)
-- **`main.lua`**: Minimal orchestration - manages sentence state and input menu visibility
+- **`lib/`**: Helper functions, utilities, and classes
+  - `lib/file_manager.lua` - Directory scanning and file cycling
+  - `lib/highlighter.lua` - Syntax highlighting using tree-sitter
+  - `lib/syntax.lua` - Tree-sitter FFI bindings for parsing
+  - `lib/filter.lua` - Letter-based word filtering
+  - `lib/corpus.lua` - Word list loading
+- **`main.lua`**: Minimal orchestration - manages app mode, file state, and sentence state
 
 When adding features:
 - Extract reusable UI elements into `ui/` components with their own state and rendering
 - Move shared logic and utilities into `lib/` modules
 - Keep `main.lua` focused on high-level coordination
 
-### Two-Mode System
+### App Modes
 
-1. **Filter Mode** (default): Live filtering as joysticks move
-   - Left stick: Points to full QWERTY keyboard to filter word beginnings
-   - Right stick: Points to full QWERTY keyboard to filter word endings
-   - Region-based filtering: includes 4 closest keys to stick position
-   - Both sticks update `filtered` list in real-time via `Filter.apply()`
+1. **View Mode** (default): File browsing
+   - L1/R1: Cycle through loaded files
+   - File viewer displays syntax-highlighted code on left half
 
-2. **Select Mode** (triggered by RB button):
-   - Right stick: Selects from radial menu of visible candidates (angle-aligned with visual positions)
-   - Right stick release: Accepts selection, adds word to sentence, returns to filter mode
-   - Left stick: Can remain active to maintain start-letter filtering for the next word
+2. **Input Mode** (toggle with X): Word selection
+   - Input menu appears on right half
+   - **Filter sub-mode**: Both sticks filter words (left=start letters, right=end letters)
+   - **Select sub-mode** (RB): Right stick selects from radial menu, release to accept
 
 ### Core Components
 
 - **main.lua**: Minimal application orchestration
-  - Tracks `sentence` (accumulated words) and `input_menu_visible` toggle
-  - Handles X button to toggle input menu visibility
-  - Handles B button to delete last word from sentence
-  - Delegates all input/filtering logic to `input_menu` component
+  - Tracks `mode` ("view" or "input"), `files`, `current_file_index`, `sentence`
+  - X button toggles mode, L1/R1 cycle files (view mode), B deletes words
+  - Coordinates `file_viewer` and `input_menu` components
+
+- **ui/file_viewer.lua**: Code display component
+  - `FileViewer:set_file(file)`: Load and highlight a file
+  - `FileViewer:draw()`: Render with line numbers and scroll indicator
 
 - **ui/input_menu.lua**: Grouped input component (appears on right half of screen)
   - Manages internal `mode` state ("filter" or "select")
@@ -87,8 +98,10 @@ When adding features:
 ### Key State Variables
 
 **In main.lua:**
-- `sentence`: Array of selected words (global app state)
-- `input_menu_visible`: Boolean controlling menu visibility
+- `mode`: App mode ("view" or "input")
+- `files`: Array of loaded file objects `{path, name, content, language}`
+- `current_file_index`: Index of currently displayed file
+- `sentence`: Array of selected words
 - `left_stick`/`right_stick`: Normalized joystick positions (-1 to 1)
 
 **In input_menu:**
@@ -120,11 +133,12 @@ The region-based filtering provides a more forgiving input experience by includi
 The radial selection menu in select mode is angle-aligned with stick position - pointing the right stick in a direction highlights the word in that direction on the radial menu. Only the right stick needs to be released to accept a word, allowing the left stick to remain active for continuous filtering workflow (user can select multiple words rapidly while maintaining a consistent start-letter filter).
 
 The application expects a gamepad with standard layout:
-- **X/Square/Y button** (left face): Toggle input menu visibility
-- **RB button** (right shoulder): Switch between filter/select modes
-- **ZR/R2 trigger**: Advance pagination in select mode
+- **X button**: Toggle between view/input modes
+- **L1/R1** (view mode): Cycle through files
+- **RB** (input mode): Switch between filter/select sub-modes
+- **ZR/R2 trigger** (input mode): Advance pagination in select mode
 - **B button**: Delete last word from sentence
-- **Left/Right analog sticks**: Control keyboard filtering and selection
-- **Right stick release**: Accept selected word in select mode
+- **Left/Right analog sticks** (input mode): Control keyboard filtering and selection
+- **Right stick release** (input mode): Accept selected word
 
 During development the lick.lua library will provide hot-reloading capability. So, you don't need to run `love .` to test the game because the developer will be testing it via a single hot-reloaded active session.

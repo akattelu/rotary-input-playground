@@ -162,6 +162,8 @@ function FileViewer:draw()
     )
 
     -- Code line (highlighted)
+    -- Reset to white so coloredtext colors aren't multiplied/dimmed
+    love.graphics.setColor(1, 1, 1, 1)
     local line = self.highlighted_lines[line_idx]
     if line then
       love.graphics.print(line, cfg.x + cfg.gutter_width + cfg.padding, y)
