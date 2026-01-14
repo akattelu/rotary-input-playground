@@ -2,6 +2,7 @@ local Corpus = require("lib.corpus")
 local InputMenu = require("ui.input_menu")
 local FileManager = require("lib.file_manager")
 local FileViewer = require("ui.file_viewer")
+local Picker = require("ui.picker")
 
 -- State
 local words = {}
@@ -22,6 +23,21 @@ local input_menu = nil
 local file_viewer = nil
 local files = {}
 local current_file_index = 1
+
+-- Command palette
+local picker = nil
+local commands = {
+  {name = "Go to Definition", action = function() end},
+  {name = "Find References", action = function() end},
+  {name = "Rename Symbol", action = function() end},
+  {name = "Format Document", action = function() end},
+  {name = "Toggle Comment", action = function() end},
+  {name = "Duplicate Line", action = function() end},
+  {name = "Delete Line", action = function() end},
+  {name = "Move Line Up", action = function() end},
+  {name = "Move Line Down", action = function() end},
+  {name = "Select All", action = function() end},
+}
 
 
 -- Hot reloading (disabled for web builds)
@@ -78,6 +94,10 @@ function love.load()
     height = height
   })
   input_menu:load()
+
+  -- Create command palette picker
+  picker = Picker.new({})
+  picker:load()
 end
 
 function love.resize(w, h)
@@ -105,6 +125,12 @@ function love.update(dt)
   right_stick.x = joystick:getGamepadAxis("rightx") or 0
   right_stick.y = joystick:getGamepadAxis("righty") or 0
 
+  -- Command palette takes priority when open
+  if picker and picker:is_open() then
+    picker:update(left_stick, right_stick)
+    return
+  end
+
   if mode == "input" and input_menu then
     -- Update input menu in input mode
     local sticks = { left = left_stick, right = right_stick }
@@ -122,6 +148,36 @@ function love.update(dt)
 end
 
 function love.gamepadpressed(_, button)
+  -- Handle command palette
+  if button == "start" then
+    -- Toggle command palette
+    if picker then
+      if picker:is_open() then
+        picker:hide()
+      else
+        picker:show(commands)
+      end
+    end
+    return
+  end
+
+  -- When palette is open, handle its controls
+  if picker and picker:is_open() then
+    if button == "a" then
+      local selected = picker:confirm_selection()
+      if selected and selected.action then
+        selected.action()
+        print("Executed: " .. selected.name)
+      end
+      picker:hide()
+    elseif button == "b" then
+      picker:hide()
+    elseif button == "rightshoulder" then
+      picker:next_page()
+    end
+    return
+  end
+
   if button == "x" then
     -- Toggle between view and input modes
     if mode == "view" then
@@ -208,9 +264,14 @@ function love.draw()
   love.graphics.setColor(0.4, 0.4, 0.4)
   local instructions
   if mode == "view" then
-    instructions = "[X] Input Mode  [L1/R1] Switch Files"
+    instructions = "[X] Input Mode  [L1/R1] Switch Files  [+] Commands"
   else
-    instructions = "[X] View Mode  [RB] Select  [ZR] Page  [B] Delete  [Release] Accept"
+    instructions = "[X] View Mode  [RB] Select  [ZR] Page  [B] Delete  [+] Commands"
   end
   love.graphics.printf(instructions, 0, height - 40, width, "center")
+
+  -- Draw command palette (overlay, drawn last)
+  if picker then
+    picker:draw()
+  end
 end
