@@ -1,8 +1,7 @@
 local Corpus = require("lib.corpus")
 local InputMenu = require("ui.input_menu")
-local Syntax = require("lib.syntax")
-
-Syntax.test()
+local FileManager = require("lib.file_manager")
+local FileViewer = require("ui.file_viewer")
 
 -- State
 local words = {}
@@ -13,9 +12,16 @@ local sentence = {} -- accumulated selected words
 local left_stick = { x = 0, y = 0 }
 local right_stick = { x = 0, y = 0 }
 
+-- Mode system: "view" or "input"
+local mode = "view"
+
 -- Input menu
 local input_menu = nil
-local input_menu_visible = false
+
+-- File viewer
+local file_viewer = nil
+local files = {}
+local current_file_index = 1
 
 
 -- Hot reloading (disabled for web builds)
@@ -41,8 +47,25 @@ function love.load()
   -- Load word list
   words = Corpus.load()
 
-  -- Create and initialize input menu with responsive dimensions
+  -- Get window dimensions
   local width, height = love.graphics.getDimensions()
+
+  -- Create and initialize file viewer (left half)
+  file_viewer = FileViewer.new({
+    x = 0,
+    y = 0,
+    width = width / 2,
+    height = height
+  })
+  file_viewer:load()
+
+  -- Load .lua files from current directory
+  files = FileManager.scan_directory("lua")
+  if #files > 0 then
+    file_viewer:set_file(files[current_file_index])
+  end
+
+  -- Create and initialize input menu (right half)
   input_menu = InputMenu.new({
     x = width / 2,
     width = width / 2,
@@ -52,7 +75,12 @@ function love.load()
 end
 
 function love.resize(w, h)
-  -- Update input menu dimensions when window is resized
+  -- Update file viewer dimensions (left half)
+  if file_viewer then
+    file_viewer:resize(0, 0, w / 2, h)
+  end
+
+  -- Update input menu dimensions (right half)
   if input_menu then
     input_menu:resize(w / 2, 0, w / 2, h)
   end
@@ -63,36 +91,67 @@ function love.joystickadded(j)
 end
 
 function love.update()
-  if not joystick or not input_menu_visible then return end
+  if not joystick then return end
 
-  -- Read stick positions
-  left_stick.x = joystick:getGamepadAxis("leftx") or 0
-  left_stick.y = joystick:getGamepadAxis("lefty") or 0
-  right_stick.x = joystick:getGamepadAxis("rightx") or 0
-  right_stick.y = joystick:getGamepadAxis("righty") or 0
+  -- Only update input menu in input mode
+  if mode == "input" and input_menu then
+    -- Read stick positions
+    left_stick.x = joystick:getGamepadAxis("leftx") or 0
+    left_stick.y = joystick:getGamepadAxis("lefty") or 0
+    right_stick.x = joystick:getGamepadAxis("rightx") or 0
+    right_stick.y = joystick:getGamepadAxis("righty") or 0
 
-  -- Update input menu
-  local sticks = { left = left_stick, right = right_stick }
-  local selected_word = input_menu:update(words, sticks, joystick)
+    -- Update input menu
+    local sticks = { left = left_stick, right = right_stick }
+    local selected_word = input_menu:update(words, sticks, joystick)
 
-  -- Add word to sentence if selected
-  if selected_word then
-    table.insert(sentence, selected_word)
-    print("Added: " .. selected_word)
+    -- Add word to sentence if selected
+    if selected_word then
+      table.insert(sentence, selected_word)
+      print("Added: " .. selected_word)
+    end
+  end
+
+  -- File viewer could update here for smooth scrolling (future)
+  if file_viewer then
+    file_viewer:update()
   end
 end
 
 function love.gamepadpressed(_, button)
   if button == "x" then
-    -- Toggle input menu visibility
-    input_menu_visible = not input_menu_visible
-  elseif button == "rightshoulder" and input_menu_visible and input_menu then
-    -- Handle mode toggle in input menu
-    local word = input_menu:handle_mode_toggle()
-    if word then
-      table.insert(sentence, word)
-      print("Added: " .. word)
+    -- Toggle between view and input modes
+    if mode == "view" then
+      mode = "input"
+    else
+      mode = "view"
     end
+
+  elseif button == "leftshoulder" then
+    -- L1: Previous file (only in view mode)
+    if mode == "view" and #files > 0 then
+      current_file_index = FileManager.prev_index(current_file_index, #files)
+      if file_viewer then
+        file_viewer:set_file(files[current_file_index])
+      end
+    end
+
+  elseif button == "rightshoulder" then
+    if mode == "view" and #files > 0 then
+      -- R1: Next file (in view mode)
+      current_file_index = FileManager.next_index(current_file_index, #files)
+      if file_viewer then
+        file_viewer:set_file(files[current_file_index])
+      end
+    elseif mode == "input" and input_menu then
+      -- RB: Mode toggle in input menu (existing behavior)
+      local word = input_menu:handle_mode_toggle()
+      if word then
+        table.insert(sentence, word)
+        print("Added: " .. word)
+      end
+    end
+
   elseif button == "b" then
     -- Delete last word from sentence
     if #sentence > 0 then
@@ -108,24 +167,47 @@ function love.draw()
   -- Get current window dimensions
   local width, height = love.graphics.getDimensions()
 
-  -- Draw sentence (always visible, left half of screen)
-  love.graphics.setColor(1, 1, 1)
-  local sentence_text = table.concat(sentence, " ")
-  if #sentence_text == 0 then
-    sentence_text = "(empty)"
-    love.graphics.setColor(0.5, 0.5, 0.5)
+  -- Draw file viewer (always visible, left half)
+  if file_viewer then
+    file_viewer:draw()
   end
-  love.graphics.printf(sentence_text, 20, 85, width / 2 - 40, "left")
 
-  -- Draw input menu if visible
-  if input_menu_visible and input_menu then
+  -- Draw input menu (only in input mode, right half)
+  if mode == "input" and input_menu then
     input_menu:draw()
+
+    -- Draw sentence overlay at top of input menu
+    love.graphics.setColor(0, 0, 0, 0.7)
+    love.graphics.rectangle("fill", width / 2 + 10, 40, width / 2 - 20, 35)
+    love.graphics.setColor(1, 1, 1)
+    local sentence_text = table.concat(sentence, " ")
+    if #sentence_text == 0 then
+      sentence_text = "(empty)"
+      love.graphics.setColor(0.5, 0.5, 0.5)
+    end
+    love.graphics.printf(sentence_text, width / 2 + 20, 48, width / 2 - 40, "left")
+  end
+
+  -- Mode indicator
+  love.graphics.setColor(0.3, 0.3, 0.35, 1)
+  love.graphics.rectangle("fill", width / 2 - 70, 5, 60, 20)
+  love.graphics.setColor(0.8, 0.8, 0.8)
+  love.graphics.printf(mode:upper(), width / 2 - 70, 8, 60, "center")
+
+  -- File counter (if files loaded)
+  if #files > 0 then
+    love.graphics.setColor(0.5, 0.5, 0.5)
+    local file_info = string.format("File %d/%d", current_file_index, #files)
+    love.graphics.print(file_info, 10, 8)
   end
 
   -- Instructions (aligned to viewport bottom)
   love.graphics.setColor(0.4, 0.4, 0.4)
-  love.graphics.printf(
-    "[X/□] Toggle Menu  [RB] Select Mode  [ZR/R2] Next Page  [B] Delete  [Release Stick] Accept",
-    0, height - 40, width, "center"
-  )
+  local instructions
+  if mode == "view" then
+    instructions = "[X] Input Mode  [L1/R1] Switch Files"
+  else
+    instructions = "[X] View Mode  [RB] Select  [ZR] Page  [B] Delete  [Release] Accept"
+  end
+  love.graphics.printf(instructions, 0, height - 40, width, "center")
 end
