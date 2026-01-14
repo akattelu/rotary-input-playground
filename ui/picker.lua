@@ -31,6 +31,10 @@ function Picker.new(config)
   self.left_y = 0
   self.right_y = 0
 
+  -- Trigger state for edge detection
+  self.left_trigger_prev = 0
+  self.right_trigger_prev = 0
+
   return self
 end
 
@@ -88,7 +92,7 @@ function Picker:prev_page()
   end
 end
 
-function Picker:update(left_stick, right_stick)
+function Picker:update(left_stick, right_stick, joystick)
   if not self.visible or #self.candidates == 0 then
     return nil
   end
@@ -98,6 +102,24 @@ function Picker:update(left_stick, right_stick)
 
   if item_count == 0 then
     return nil
+  end
+
+  -- Handle trigger pagination
+  if joystick then
+    local TRIGGER_THRESHOLD = 0.5
+    local left_trigger = joystick:getGamepadAxis("triggerleft") or 0
+    local right_trigger = joystick:getGamepadAxis("triggerright") or 0
+
+    -- Detect edges
+    if left_trigger > TRIGGER_THRESHOLD and self.left_trigger_prev <= TRIGGER_THRESHOLD then
+      self:prev_page()
+    end
+    if right_trigger > TRIGGER_THRESHOLD and self.right_trigger_prev <= TRIGGER_THRESHOLD then
+      self:next_page()
+    end
+
+    self.left_trigger_prev = left_trigger
+    self.right_trigger_prev = right_trigger
   end
 
   -- Apply deadzone and store for drawing

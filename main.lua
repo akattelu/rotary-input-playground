@@ -167,7 +167,7 @@ function love.update(dt)
 
   -- Command palette takes priority when open
   if picker and picker:is_open() then
-    picker:update(left_stick, right_stick)
+    picker:update(left_stick, right_stick, joystick)
     return
   end
 
@@ -213,10 +213,6 @@ function love.gamepadpressed(_, button)
       picker:hide()
     elseif button == "b" then
       picker:hide()
-    elseif button == "triggerright" then
-      picker:next_page()
-    elseif button == "triggerleft" then
-      picker:prev_page()
     end
     return
   end
