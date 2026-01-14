@@ -80,6 +80,14 @@ function Picker:next_page()
   end
 end
 
+function Picker:prev_page()
+  local total_pages = self:get_total_pages()
+  if total_pages > 1 then
+    self.page = ((self.page - 2) % total_pages) + 1
+    self.selected_index = 1
+  end
+end
+
 function Picker:update(left_stick, right_stick)
   if not self.visible or #self.candidates == 0 then
     return nil
@@ -206,7 +214,7 @@ function Picker:draw()
 
   -- Controls hint
   love.graphics.setColor(0.4, 0.4, 0.4, 1)
-  local controls = "[L-Stick] Macro  [R-Stick] Micro  [R1] Page  [A] Select  [B] Cancel"
+  local controls = "[L-Stick] Macro  [R-Stick] Micro  [L2] Prev  [R2] Next  [R1] Select  [B] Cancel"
   love.graphics.printf(controls, box_x, footer_y + 20, box_width, "center")
 
   -- Draw vector indicators on the right side of the list

@@ -37,6 +37,40 @@ local commands = {
   {name = "Move Line Up", action = function() end},
   {name = "Move Line Down", action = function() end},
   {name = "Select All", action = function() end},
+  {name = "Undo", action = function() end},
+  {name = "Redo", action = function() end},
+  {name = "Cut", action = function() end},
+  {name = "Copy", action = function() end},
+  {name = "Paste", action = function() end},
+  {name = "Find", action = function() end},
+  {name = "Find and Replace", action = function() end},
+  {name = "Find Next", action = function() end},
+  {name = "Find Previous", action = function() end},
+  {name = "Jump to Line", action = function() end},
+  {name = "Go to File", action = function() end},
+  {name = "Quick Open", action = function() end},
+  {name = "Toggle Sidebar", action = function() end},
+  {name = "Toggle Terminal", action = function() end},
+  {name = "Toggle Minimap", action = function() end},
+  {name = "Zen Mode", action = function() end},
+  {name = "Focus Editor", action = function() end},
+  {name = "Save File", action = function() end},
+  {name = "Save All", action = function() end},
+  {name = "Close File", action = function() end},
+  {name = "Close All", action = function() end},
+  {name = "New File", action = function() end},
+  {name = "Open File", action = function() end},
+  {name = "Revert File", action = function() end},
+  {name = "Add Selection to Find", action = function() end},
+  {name = "Select Next Occurrence", action = function() end},
+  {name = "Sort Lines", action = function() end},
+  {name = "Reverse Lines", action = function() end},
+  {name = "Indent Line", action = function() end},
+  {name = "Outdent Line", action = function() end},
+  {name = "Toggle Line Break", action = function() end},
+  {name = "Expand Selection", action = function() end},
+  {name = "Shrink Selection", action = function() end},
+  {name = "Go to Bracket", action = function() end},
 }
 
 
@@ -163,7 +197,8 @@ function love.gamepadpressed(_, button)
 
   -- When palette is open, handle its controls
   if picker and picker:is_open() then
-    if button == "a" then
+    if button == "rightshoulder" then
+      -- R1: Select/confirm
       local selected = picker:confirm_selection()
       if selected and selected.action then
         selected.action()
@@ -172,8 +207,10 @@ function love.gamepadpressed(_, button)
       picker:hide()
     elseif button == "b" then
       picker:hide()
-    elseif button == "rightshoulder" then
+    elseif button == "triggerright" then
       picker:next_page()
+    elseif button == "triggerleft" then
+      picker:prev_page()
     end
     return
   end
