@@ -37,7 +37,12 @@ end
 function InputMenu:load()
   -- Calculate center x of right half
   local center_x = self.config.x + self.config.width / 2
-  local left_margin = self.config.x + 30
+
+  -- Keyboard dimensions (from dial.lua constants)
+  local keyPitch = 25
+  local keySpacing = 3
+  local keyboardWidth = 10 * keyPitch - keySpacing  -- 247 pixels
+  local gap = 20  -- Gap between keyboards
 
   -- Selection wheel (top)
   self.selection_wheel = SelectionWheel.new({
@@ -49,24 +54,21 @@ function InputMenu:load()
   })
   self.selection_wheel:load()
 
-  -- Left dial (middle) - START keyboard
-  -- Dial visualizer on left, keyboard on right
+  -- Keyboards positioned side by side
+  local keyboardY = self.config.height * 0.55
+
+  -- Left dial (START keyboard) - on the left
   self.left_dial = Dial.new({
-    baseX = center_x - 50,
-    baseY = self.config.height * 0.45,
-    visualizerX = left_margin + 60,
-    visualizerY = self.config.height * 0.45,
+    baseX = center_x - gap/2 - keyboardWidth,
+    baseY = keyboardY,
     label = "START"
   })
   self.left_dial:load()
 
-  -- Right dial (bottom) - END keyboard
-  -- Dial visualizer on left, keyboard on right
+  -- Right dial (END keyboard) - on the right
   self.right_dial = Dial.new({
-    baseX = center_x - 50,
-    baseY = self.config.height * 0.70,
-    visualizerX = left_margin + 60,
-    visualizerY = self.config.height * 0.70,
+    baseX = center_x + gap/2,
+    baseY = keyboardY,
     label = "END"
   })
   self.right_dial:load()
@@ -82,7 +84,13 @@ function InputMenu:resize(x, y, width, height)
 
   -- Recalculate positions and update components
   local center_x = x + width / 2
-  local left_margin = x + 30
+
+  -- Keyboard dimensions (from dial.lua constants)
+  local keyPitch = 25
+  local keySpacing = 3
+  local keyboardWidth = 10 * keyPitch - keySpacing  -- 247 pixels
+  local gap = 20  -- Gap between keyboards
+  local keyboardY = height * 0.55
 
   -- Update selection wheel
   if self.selection_wheel then
@@ -90,21 +98,17 @@ function InputMenu:resize(x, y, width, height)
     self.selection_wheel.config.cy = height * 0.18
   end
 
-  -- Update left dial (dial on left, keyboard on right)
+  -- Update left dial (START keyboard on left)
   if self.left_dial then
-    self.left_dial.config.baseX = center_x - 50
-    self.left_dial.config.baseY = height * 0.45
-    self.left_dial.config.visualizerX = left_margin + 60
-    self.left_dial.config.visualizerY = height * 0.45
+    self.left_dial.config.baseX = center_x - gap/2 - keyboardWidth
+    self.left_dial.config.baseY = keyboardY
     self.left_dial.key_positions = self.left_dial:buildKeyPositions()
   end
 
-  -- Update right dial (dial on left, keyboard on right)
+  -- Update right dial (END keyboard on right)
   if self.right_dial then
-    self.right_dial.config.baseX = center_x - 50
-    self.right_dial.config.baseY = height * 0.70
-    self.right_dial.config.visualizerX = left_margin + 60
-    self.right_dial.config.visualizerY = height * 0.70
+    self.right_dial.config.baseX = center_x + gap/2
+    self.right_dial.config.baseY = keyboardY
     self.right_dial.key_positions = self.right_dial:buildKeyPositions()
   end
 end
