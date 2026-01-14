@@ -2,18 +2,18 @@ local Syntax = require("lib.syntax")
 
 local Highlighter = {}
 
--- Color theme (RGBA values 0-1)
+-- Color theme (RGBA values 0-1) - Nord palette
 Highlighter.THEME = {
-  default    = {0.85, 0.85, 0.85, 1},    -- light gray
-  keyword    = {0.8, 0.5, 0.8, 1},       -- purple
-  string     = {0.6, 0.8, 0.5, 1},       -- green
-  comment    = {0.5, 0.5, 0.5, 1},       -- gray
-  number     = {0.9, 0.7, 0.4, 1},       -- orange
-  operator   = {0.7, 0.8, 0.9, 1},       -- light blue
-  func_name  = {0.5, 0.7, 0.9, 1},       -- blue
-  property   = {0.8, 0.8, 0.6, 1},       -- yellow
-  builtin    = {0.7, 0.6, 0.9, 1},       -- violet
-  punctuation = {0.6, 0.6, 0.6, 1},      -- dim gray
+  default    = {0.85, 0.87, 0.91, 1},    -- nord4 (primary text)
+  keyword    = {0.51, 0.63, 0.76, 1},    -- nord9 (blue)
+  string     = {0.64, 0.75, 0.55, 1},    -- nord14 (green)
+  comment    = {0.30, 0.34, 0.42, 1},    -- nord3 (muted gray)
+  number     = {0.71, 0.56, 0.68, 1},    -- nord15 (purple)
+  operator   = {0.51, 0.63, 0.76, 1},    -- nord9 (blue)
+  func_name  = {0.53, 0.75, 0.82, 1},    -- nord8 (cyan)
+  property   = {0.53, 0.75, 0.82, 1},    -- nord8 (cyan)
+  builtin    = {0.56, 0.74, 0.73, 1},    -- nord7 (teal)
+  punctuation = {0.85, 0.87, 0.91, 1},   -- nord4 (primary text)
 }
 
 -- Node types to color mapping
