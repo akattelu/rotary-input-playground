@@ -76,8 +76,8 @@ end
 
 -- Render keyboard and stick visualizer
 function Dial:draw()
-  self:draw_stick_visualizer()
   self:drawKeyboard()
+  self:draw_stick_visualizer()  -- Draw on top of keyboard
 end
 
 -- Get currently highlighted key
@@ -171,27 +171,25 @@ function Dial:drawKeyboard()
   end
 end
 
--- Internal: Draw stick position visualizer
+-- Internal: Draw stick position visualizer (overlayed on keyboard)
 function Dial:draw_stick_visualizer()
-  local cx = self.config.visualizerX
-  local cy = self.config.visualizerY
-  local radius = 40
+  -- Calculate keyboard center
+  local maxRowWidth = 10 * keyPitch - keySpacing
+  local keyboardHeight = 3 * keyPitch
+  local cx = self.config.baseX + maxRowWidth / 2
+  local cy = self.config.baseY + keyboardHeight / 2
 
-  -- Outer ring
-  love.graphics.setColor(0.3, 0.3, 0.35)
-  love.graphics.circle("line", cx, cy, radius)
-
-  -- Stick position
+  -- Stick position dot (overlayed on keyboard)
   love.graphics.setColor(0.9, 0.3, 0.3)
   love.graphics.circle("fill",
-    cx + self.stick.x * radius * 0.8,
-    cy + self.stick.y * radius * 0.8,
+    cx + self.stick.x * maxRowWidth / 2 * 0.9,
+    cy + self.stick.y * keyboardHeight / 2 * 0.9,
     6
   )
 
-  -- Label
+  -- Label (under the keyboard)
   love.graphics.setColor(0.6, 0.6, 0.6)
-  love.graphics.printf(self.config.label, cx - 30, cy + radius + 5, 60, "center")
+  love.graphics.printf(self.config.label, self.config.baseX, self.config.baseY + keyboardHeight + 5, maxRowWidth, "center")
 end
 
 return Dial
