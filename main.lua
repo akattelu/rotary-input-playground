@@ -27,57 +27,57 @@ local current_file_index = 1
 -- Command palette
 local picker = nil
 local commands = {
-  {name = "Go to Definition", action = function() end},
-  {name = "Find References", action = function() end},
-  {name = "Rename Symbol", action = function() end},
-  {name = "Format Document", action = function() end},
-  {name = "Toggle Comment", action = function() end},
-  {name = "Duplicate Line", action = function() end},
-  {name = "Delete Line", action = function() end},
-  {name = "Move Line Up", action = function() end},
-  {name = "Move Line Down", action = function() end},
-  {name = "Select All", action = function() end},
-  {name = "Undo", action = function() end},
-  {name = "Redo", action = function() end},
-  {name = "Cut", action = function() end},
-  {name = "Copy", action = function() end},
-  {name = "Paste", action = function() end},
-  {name = "Find", action = function() end},
-  {name = "Find and Replace", action = function() end},
-  {name = "Find Next", action = function() end},
-  {name = "Find Previous", action = function() end},
-  {name = "Jump to Line", action = function() end},
-  {name = "Go to File", action = function() end},
-  {name = "Quick Open", action = function() end},
-  {name = "Toggle Sidebar", action = function() end},
-  {name = "Toggle Terminal", action = function() end},
-  {name = "Toggle Minimap", action = function() end},
-  {name = "Zen Mode", action = function() end},
-  {name = "Focus Editor", action = function() end},
-  {name = "Save File", action = function() end},
-  {name = "Save All", action = function() end},
-  {name = "Close File", action = function() end},
-  {name = "Close All", action = function() end},
-  {name = "New File", action = function() end},
-  {name = "Open File", action = function() end},
-  {name = "Revert File", action = function() end},
-  {name = "Add Selection to Find", action = function() end},
-  {name = "Select Next Occurrence", action = function() end},
-  {name = "Sort Lines", action = function() end},
-  {name = "Reverse Lines", action = function() end},
-  {name = "Indent Line", action = function() end},
-  {name = "Outdent Line", action = function() end},
-  {name = "Toggle Line Break", action = function() end},
-  {name = "Expand Selection", action = function() end},
-  {name = "Shrink Selection", action = function() end},
-  {name = "Go to Bracket", action = function() end},
+  { name = "Go to Definition",       action = function() end },
+  { name = "Find References",        action = function() end },
+  { name = "Rename Symbol",          action = function() end },
+  { name = "Format Document",        action = function() end },
+  { name = "Toggle Comment",         action = function() end },
+  { name = "Duplicate Line",         action = function() end },
+  { name = "Delete Line",            action = function() end },
+  { name = "Move Line Up",           action = function() end },
+  { name = "Move Line Down",         action = function() end },
+  { name = "Select All",             action = function() end },
+  { name = "Undo",                   action = function() end },
+  { name = "Redo",                   action = function() end },
+  { name = "Cut",                    action = function() end },
+  { name = "Copy",                   action = function() end },
+  { name = "Paste",                  action = function() end },
+  { name = "Find",                   action = function() end },
+  { name = "Find and Replace",       action = function() end },
+  { name = "Find Next",              action = function() end },
+  { name = "Find Previous",          action = function() end },
+  { name = "Jump to Line",           action = function() end },
+  { name = "Go to File",             action = function() end },
+  { name = "Quick Open",             action = function() end },
+  { name = "Toggle Sidebar",         action = function() end },
+  { name = "Toggle Terminal",        action = function() end },
+  { name = "Toggle Minimap",         action = function() end },
+  { name = "Zen Mode",               action = function() end },
+  { name = "Focus Editor",           action = function() end },
+  { name = "Save File",              action = function() end },
+  { name = "Save All",               action = function() end },
+  { name = "Close File",             action = function() end },
+  { name = "Close All",              action = function() end },
+  { name = "New File",               action = function() end },
+  { name = "Open File",              action = function() end },
+  { name = "Revert File",            action = function() end },
+  { name = "Add Selection to Find",  action = function() end },
+  { name = "Select Next Occurrence", action = function() end },
+  { name = "Sort Lines",             action = function() end },
+  { name = "Reverse Lines",          action = function() end },
+  { name = "Indent Line",            action = function() end },
+  { name = "Outdent Line",           action = function() end },
+  { name = "Toggle Line Break",      action = function() end },
+  { name = "Expand Selection",       action = function() end },
+  { name = "Shrink Selection",       action = function() end },
+  { name = "Go to Bracket",          action = function() end },
 }
 
 
 -- Hot reloading (disabled for web builds)
 local isWeb = love.system.getOS() == "Web"
 if not isWeb then
-  local lick = require "lick"
+  local lick = require "vendor.lick"
   lick.reset = true
   lick.updateAllFiles = true
   lick.clearPackages = true
@@ -96,7 +96,7 @@ function love.load()
   love.window.setMode(desktop_width, desktop_height, { resizable = true })
 
   -- Set Fira Mono font with better rendering quality
-  local font = love.graphics.newFont("FiraMonoNerdFont-Regular.otf", 14, "normal")
+  local font = love.graphics.newFont("rsrc/FiraMonoNerdFont-Regular.otf", 14, "normal")
   font:setFilter("nearest", "nearest") -- Crisp pixel-perfect rendering
   love.graphics.setFont(font)
 
@@ -224,7 +224,6 @@ function love.gamepadpressed(_, button)
     else
       mode = "view"
     end
-
   elseif button == "leftshoulder" then
     -- L1: Previous file (only in view mode)
     if mode == "view" and #files > 0 then
@@ -233,7 +232,6 @@ function love.gamepadpressed(_, button)
         file_viewer:set_file(files[current_file_index])
       end
     end
-
   elseif button == "rightshoulder" then
     if mode == "view" and #files > 0 then
       -- R1: Next file (in view mode)
@@ -249,7 +247,6 @@ function love.gamepadpressed(_, button)
         print("Added: " .. word)
       end
     end
-
   elseif button == "b" then
     -- Delete last word from sentence
     if #sentence > 0 then
