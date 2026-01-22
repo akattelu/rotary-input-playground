@@ -142,3 +142,15 @@ The application expects a gamepad with standard layout:
 - **Right stick release** (input mode): Accept selected word
 
 During development the lick.lua library will provide hot-reloading capability. So, you don't need to run `love .` to test the game because the developer will be testing it via a single hot-reloaded active session.
+
+## Testing
+
+Run tests with LuaJIT:
+
+```bash
+luajit spec/test.lua
+```
+
+- **`spec/assert.lua`**: Minimal test framework with `assert.equal()`, `assert.truthy()`, `assert.falsy()`, and `assert.test()` for error catching
+- **`spec/test.lua`**: Runner that auto-discovers `*_spec.lua` files
+- Create test files as `spec/*_spec.lua`
