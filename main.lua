@@ -4,6 +4,9 @@ local FileManager = require("lib.file_manager")
 local FileViewer = require("ui.file_viewer")
 local Picker = require("ui.picker")
 
+-- Constants
+local HUD_HEIGHT = 30 -- Space for global HUD elements at top
+
 -- State
 local words = {}
 local joystick = nil
@@ -95,7 +98,7 @@ function love.load()
 
   -- Set Fira Mono font with better rendering quality
   local font = love.graphics.newFont("rsrc/FiraMonoNerdFont-Regular.otf", 14, "normal")
-  font:setFilter("nearest", "nearest") -- Crisp pixel-perfect rendering
+  font:setFilter("linear", "linear") -- Smooth rendering for high-DPI displays
   love.graphics.setFont(font)
 
   -- Load word list
@@ -104,12 +107,12 @@ function love.load()
   -- Get window dimensions
   local width, height = love.graphics.getDimensions()
 
-  -- Create and initialize file viewer (left half)
+  -- Create and initialize file viewer (left half, below HUD)
   file_viewer = FileViewer.new({
     x = 0,
-    y = 0,
+    y = HUD_HEIGHT,
     width = width / 2,
-    height = height,
+    height = height - HUD_HEIGHT,
   })
   file_viewer:load()
 
@@ -139,9 +142,9 @@ function love.load()
 end
 
 function love.resize(w, h)
-  -- Update file viewer dimensions (left half)
+  -- Update file viewer dimensions (left half, below HUD)
   if file_viewer then
-    file_viewer:resize(0, 0, w / 2, h)
+    file_viewer:resize(0, HUD_HEIGHT, w / 2, h - HUD_HEIGHT)
   end
 
   -- Update input menu dimensions (right half)
