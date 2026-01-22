@@ -10,6 +10,8 @@ This requires 2 libraries (used in `lib/syntax.lua`):
 
 ```bash
 luajit spec/test.lua
+stylua . # format all code
 ```
 
 Tests use a minimal framework in `spec/assert.lua`. Create test files as `spec/*_spec.lua`.
+

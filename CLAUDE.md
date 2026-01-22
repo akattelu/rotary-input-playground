@@ -154,3 +154,9 @@ luajit spec/test.lua
 - **`spec/assert.lua`**: Minimal test framework with `assert.equal()`, `assert.truthy()`, `assert.falsy()`, and `assert.test()` for error catching
 - **`spec/test.lua`**: Runner that auto-discovers `*_spec.lua` files
 - Create test files as `spec/*_spec.lua`
+
+## Formatting
+
+This repo uses `stylua` for formatting
+
+Format code with `stylua .`
