@@ -27,62 +27,60 @@ local current_file_index = 1
 -- Command palette
 local picker = nil
 local commands = {
-  { name = "Go to Definition",       action = function() end },
-  { name = "Find References",        action = function() end },
-  { name = "Rename Symbol",          action = function() end },
-  { name = "Format Document",        action = function() end },
-  { name = "Toggle Comment",         action = function() end },
-  { name = "Duplicate Line",         action = function() end },
-  { name = "Delete Line",            action = function() end },
-  { name = "Move Line Up",           action = function() end },
-  { name = "Move Line Down",         action = function() end },
-  { name = "Select All",             action = function() end },
-  { name = "Undo",                   action = function() end },
-  { name = "Redo",                   action = function() end },
-  { name = "Cut",                    action = function() end },
-  { name = "Copy",                   action = function() end },
-  { name = "Paste",                  action = function() end },
-  { name = "Find",                   action = function() end },
-  { name = "Find and Replace",       action = function() end },
-  { name = "Find Next",              action = function() end },
-  { name = "Find Previous",          action = function() end },
-  { name = "Jump to Line",           action = function() end },
-  { name = "Go to File",             action = function() end },
-  { name = "Quick Open",             action = function() end },
-  { name = "Toggle Sidebar",         action = function() end },
-  { name = "Toggle Terminal",        action = function() end },
-  { name = "Toggle Minimap",         action = function() end },
-  { name = "Zen Mode",               action = function() end },
-  { name = "Focus Editor",           action = function() end },
-  { name = "Save File",              action = function() end },
-  { name = "Save All",               action = function() end },
-  { name = "Close File",             action = function() end },
-  { name = "Close All",              action = function() end },
-  { name = "New File",               action = function() end },
-  { name = "Open File",              action = function() end },
-  { name = "Revert File",            action = function() end },
-  { name = "Add Selection to Find",  action = function() end },
+  { name = "Go to Definition", action = function() end },
+  { name = "Find References", action = function() end },
+  { name = "Rename Symbol", action = function() end },
+  { name = "Format Document", action = function() end },
+  { name = "Toggle Comment", action = function() end },
+  { name = "Duplicate Line", action = function() end },
+  { name = "Delete Line", action = function() end },
+  { name = "Move Line Up", action = function() end },
+  { name = "Move Line Down", action = function() end },
+  { name = "Select All", action = function() end },
+  { name = "Undo", action = function() end },
+  { name = "Redo", action = function() end },
+  { name = "Cut", action = function() end },
+  { name = "Copy", action = function() end },
+  { name = "Paste", action = function() end },
+  { name = "Find", action = function() end },
+  { name = "Find and Replace", action = function() end },
+  { name = "Find Next", action = function() end },
+  { name = "Find Previous", action = function() end },
+  { name = "Jump to Line", action = function() end },
+  { name = "Go to File", action = function() end },
+  { name = "Quick Open", action = function() end },
+  { name = "Toggle Sidebar", action = function() end },
+  { name = "Toggle Terminal", action = function() end },
+  { name = "Toggle Minimap", action = function() end },
+  { name = "Zen Mode", action = function() end },
+  { name = "Focus Editor", action = function() end },
+  { name = "Save File", action = function() end },
+  { name = "Save All", action = function() end },
+  { name = "Close File", action = function() end },
+  { name = "Close All", action = function() end },
+  { name = "New File", action = function() end },
+  { name = "Open File", action = function() end },
+  { name = "Revert File", action = function() end },
+  { name = "Add Selection to Find", action = function() end },
   { name = "Select Next Occurrence", action = function() end },
-  { name = "Sort Lines",             action = function() end },
-  { name = "Reverse Lines",          action = function() end },
-  { name = "Indent Line",            action = function() end },
-  { name = "Outdent Line",           action = function() end },
-  { name = "Toggle Line Break",      action = function() end },
-  { name = "Expand Selection",       action = function() end },
-  { name = "Shrink Selection",       action = function() end },
-  { name = "Go to Bracket",          action = function() end },
+  { name = "Sort Lines", action = function() end },
+  { name = "Reverse Lines", action = function() end },
+  { name = "Indent Line", action = function() end },
+  { name = "Outdent Line", action = function() end },
+  { name = "Toggle Line Break", action = function() end },
+  { name = "Expand Selection", action = function() end },
+  { name = "Shrink Selection", action = function() end },
+  { name = "Go to Bracket", action = function() end },
 }
-
 
 -- Hot reloading (disabled for web builds)
 local isWeb = love.system.getOS() == "Web"
 if not isWeb then
-  local lick = require "vendor.lick"
+  local lick = require("vendor.lick")
   lick.reset = true
   lick.updateAllFiles = true
   lick.clearPackages = true
 end
-
 
 function love.load()
   -- Clean up previous file viewer if hot-reloading
@@ -111,7 +109,7 @@ function love.load()
     x = 0,
     y = 0,
     width = width / 2,
-    height = height
+    height = height,
   })
   file_viewer:load()
 
@@ -125,7 +123,7 @@ function love.load()
   input_menu = InputMenu.new({
     x = width / 2,
     width = width / 2,
-    height = height
+    height = height,
   })
   input_menu:load()
 
@@ -157,7 +155,9 @@ function love.joystickadded(j)
 end
 
 function love.update(dt)
-  if not joystick then return end
+  if not joystick then
+    return
+  end
 
   -- Read stick positions
   left_stick.x = joystick:getGamepadAxis("leftx") or 0

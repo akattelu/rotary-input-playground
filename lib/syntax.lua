@@ -10,7 +10,7 @@ local ts = ffi.load(lib_path .. "libtree-sitter.dylib")
 local grammars = ffi.load(lib_path .. "libsyntax.dylib")
 
 -- C type definitions
-ffi.cdef [[
+ffi.cdef([[
   typedef struct TSParser TSParser;
   typedef struct TSTree TSTree;
   typedef struct TSLanguage TSLanguage;
@@ -118,20 +118,85 @@ ffi.cdef [[
 
   // Memory management
   void free(void *ptr);
-]]
+]])
 
 -- Language grammar function declarations
 local LANGUAGE_NAMES = {
-  "agda", "astro", "awk", "bash", "c", "c_sharp", "cmake", "commonlisp",
-  "cpp", "css", "diff", "dockerfile", "dtd", "elixir", "elm", "fish",
-  "fsharp", "git_rebase", "gitcommit", "gleam", "go", "hare", "haskell",
-  "hcl", "html", "hurl", "java", "javascript", "json", "julia", "kdl",
-  "latex", "lua", "mail", "make", "markdown", "markdown_inline", "nasm",
-  "nickel", "nim", "ninja", "nix", "nu", "ocaml", "odin", "openscad",
-  "org", "perl", "php", "po", "powershell", "proto", "purescript",
-  "python", "regex", "rpmspec", "rst", "ruby", "rust", "scheme", "sql",
-  "ssh_config", "superhtml", "swift", "toml", "typescript", "typst",
-  "uxntal", "verilog", "vim", "xml", "yaml", "zig", "ziggy", "ziggy_schema"
+  "agda",
+  "astro",
+  "awk",
+  "bash",
+  "c",
+  "c_sharp",
+  "cmake",
+  "commonlisp",
+  "cpp",
+  "css",
+  "diff",
+  "dockerfile",
+  "dtd",
+  "elixir",
+  "elm",
+  "fish",
+  "fsharp",
+  "git_rebase",
+  "gitcommit",
+  "gleam",
+  "go",
+  "hare",
+  "haskell",
+  "hcl",
+  "html",
+  "hurl",
+  "java",
+  "javascript",
+  "json",
+  "julia",
+  "kdl",
+  "latex",
+  "lua",
+  "mail",
+  "make",
+  "markdown",
+  "markdown_inline",
+  "nasm",
+  "nickel",
+  "nim",
+  "ninja",
+  "nix",
+  "nu",
+  "ocaml",
+  "odin",
+  "openscad",
+  "org",
+  "perl",
+  "php",
+  "po",
+  "powershell",
+  "proto",
+  "purescript",
+  "python",
+  "regex",
+  "rpmspec",
+  "rst",
+  "ruby",
+  "rust",
+  "scheme",
+  "sql",
+  "ssh_config",
+  "superhtml",
+  "swift",
+  "toml",
+  "typescript",
+  "typst",
+  "uxntal",
+  "verilog",
+  "vim",
+  "xml",
+  "yaml",
+  "zig",
+  "ziggy",
+  "ziggy_schema",
 }
 
 -- Declare language functions
@@ -230,7 +295,7 @@ function Buffer:edit(start_byte, old_end_byte, new_end_byte, start_point, old_en
     new_end_byte = new_end_byte,
     start_point = start_point or { row = 0, column = 0 },
     old_end_point = old_end_point or { row = 0, column = 0 },
-    new_end_point = new_end_point or { row = 0, column = 0 }
+    new_end_point = new_end_point or { row = 0, column = 0 },
   })
 
   -- Apply edit to tree
@@ -333,7 +398,7 @@ function Syntax.node_range(node)
     start_row = start_point.row,
     start_col = start_point.column,
     end_row = end_point.row,
-    end_col = end_point.column
+    end_col = end_point.column,
   }
 end
 
@@ -590,7 +655,9 @@ function Syntax.test()
 
   -- Test 1: Count languages
   local count = 0
-  for _ in pairs(Syntax.languages) do count = count + 1 end
+  for _ in pairs(Syntax.languages) do
+    count = count + 1
+  end
   print("Available languages: " .. count)
 
   -- Test 2: Try to load lua language

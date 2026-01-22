@@ -16,7 +16,7 @@ function SelectionWheel.new(config)
     cy = config.cy or 280,
     visible_count = config.visible_count or VISIBLE_COUNT,
     radial_radius = config.radial_radius or RADIAL_RADIUS,
-    deadzone = config.deadzone or DEADZONE
+    deadzone = config.deadzone or DEADZONE,
   }
 
   -- State (initialized in load)
@@ -159,7 +159,10 @@ function SelectionWheel:draw_pagination_info(filtered, x, width, height)
     local end_idx = math.min(self.page * self.config.visible_count, #filtered)
     love.graphics.printf(
       string.format("Page %d/%d  (%d-%d of %d)", self.page, total_pages, start_idx, end_idx, #filtered),
-      x, height * 0.32, width, "center"
+      x,
+      height * 0.32,
+      width,
+      "center"
     )
   end
 end

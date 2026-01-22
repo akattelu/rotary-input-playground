@@ -6,9 +6,9 @@ local Syntax = require("lib.syntax")
 
 -- Constants
 local DEADZONE = 0.3
-local CURSOR_SPEED = 300  -- pixels per second at full stick deflection
-local SCROLL_EDGE_LINES = 4  -- scroll when cursor within this many lines of edge
-local TRIGGER_THRESHOLD = 0.5  -- threshold for trigger edge detection
+local CURSOR_SPEED = 300 -- pixels per second at full stick deflection
+local SCROLL_EDGE_LINES = 4 -- scroll when cursor within this many lines of edge
+local TRIGGER_THRESHOLD = 0.5 -- threshold for trigger edge detection
 
 -- Constructor
 function FileViewer.new(config)
@@ -40,13 +40,13 @@ function FileViewer.new(config)
   self.source_text = nil
 
   -- Cursor state
-  self.cursor = { x = 100, y = 100 }  -- screen coords relative to component
-  self.highlighted_node = nil  -- {start_row, start_col, end_row, end_col}
-  self.scroll_accumulator = 0  -- accumulates fractional scroll amounts
+  self.cursor = { x = 100, y = 100 } -- screen coords relative to component
+  self.highlighted_node = nil -- {start_row, start_col, end_row, end_col}
+  self.scroll_accumulator = 0 -- accumulates fractional scroll amounts
 
   -- Tree navigation state
-  self.navigated_node = nil  -- locked node for tree navigation (FFI reference)
-  self.trigger_prev = { l2 = 0, r2 = 0 }  -- edge detection for triggers
+  self.navigated_node = nil -- locked node for tree navigation (FFI reference)
+  self.trigger_prev = { l2 = 0, r2 = 0 } -- edge detection for triggers
 
   return self
 end
@@ -225,7 +225,7 @@ function FileViewer:update(stick, dt, joystick)
     self.highlighted_node = nil
     local line = math.floor((self.cursor.y - code_y) / cfg.line_height) + 1 + self.scroll_offset
     local font = love.graphics.getFont()
-    local char_width = font:getWidth("m")  -- monospace font
+    local char_width = font:getWidth("m") -- monospace font
     local column = math.floor((self.cursor.x - cfg.gutter_width - cfg.padding) / char_width)
 
     if self.syntax_buffer and line >= 1 and line <= self.total_lines then
@@ -245,7 +245,9 @@ end
 
 -- Get syntax node at current cursor position
 function FileViewer:get_cursor_node()
-  if not self.syntax_buffer then return nil end
+  if not self.syntax_buffer then
+    return nil
+  end
 
   local cfg = self.config
   local code_y = cfg.header_height
@@ -266,7 +268,9 @@ end
 -- Expand selection to parent node
 function FileViewer:expand_selection()
   local current = self.navigated_node or self:get_cursor_node()
-  if not current then return end
+  if not current then
+    return
+  end
 
   local parent = Syntax.node_parent(current)
   -- Keep going up to find a named node
@@ -283,7 +287,9 @@ end
 -- Shrink selection to child node containing cursor
 function FileViewer:shrink_selection()
   local current = self.navigated_node or self:get_cursor_node()
-  if not current then return end
+  if not current then
+    return
+  end
 
   -- Get cursor position in tree-sitter coordinates (0-indexed)
   local cfg = self.config
@@ -292,7 +298,7 @@ function FileViewer:shrink_selection()
   local font = love.graphics.getFont()
   local char_width = font:getWidth("m")
   local column = math.floor((self.cursor.x - cfg.gutter_width - cfg.padding) / char_width)
-  local cursor_row = line - 1  -- 0-indexed
+  local cursor_row = line - 1 -- 0-indexed
   local cursor_col = math.max(0, column)
 
   -- Find named child that contains the cursor position
@@ -378,7 +384,7 @@ function FileViewer:draw()
 
     -- Draw highlight for each line the node spans
     for row = node.start_row, node.end_row do
-      local line_idx = row + 1  -- Convert 0-indexed to 1-indexed
+      local line_idx = row + 1 -- Convert 0-indexed to 1-indexed
       local visible_line = line_idx - self.scroll_offset
 
       if visible_line >= 1 and visible_line <= self.visible_lines + 1 then
@@ -397,28 +403,19 @@ function FileViewer:draw()
   -- Draw lines
   for i = 1, self.visible_lines + 1 do
     local line_idx = self.scroll_offset + i
-    if line_idx > self.total_lines then break end
+    if line_idx > self.total_lines then
+      break
+    end
 
     local y = code_y + (i - 1) * cfg.line_height
 
     -- Line number gutter
     love.graphics.setColor(0.4, 0.4, 0.45, 1)
-    love.graphics.printf(
-      tostring(line_idx),
-      cfg.x + 5,
-      y,
-      cfg.gutter_width - 10,
-      "right"
-    )
+    love.graphics.printf(tostring(line_idx), cfg.x + 5, y, cfg.gutter_width - 10, "right")
 
     -- Gutter separator
     love.graphics.setColor(0.25, 0.25, 0.28, 1)
-    love.graphics.line(
-      cfg.x + cfg.gutter_width,
-      y,
-      cfg.x + cfg.gutter_width,
-      y + cfg.line_height
-    )
+    love.graphics.line(cfg.x + cfg.gutter_width, y, cfg.x + cfg.gutter_width, y + cfg.line_height)
 
     -- Code line (highlighted)
     -- Reset to white so coloredtext colors aren't multiplied/dimmed
@@ -429,7 +426,7 @@ function FileViewer:draw()
     end
   end
 
-  love.graphics.setScissor()  -- Reset scissor
+  love.graphics.setScissor() -- Reset scissor
 
   -- Scroll indicator
   if self.total_lines > self.visible_lines then

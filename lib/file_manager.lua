@@ -77,7 +77,7 @@ function FileManager.scan_directory(extension)
         path = path,
         name = path,
         content = content,
-        language = FileManager.get_language(path)
+        language = FileManager.get_language(path),
       })
     end
   end
@@ -95,13 +95,17 @@ end
 
 -- Cycle to next file index (wraps around)
 function FileManager.next_index(current_index, total_files)
-  if total_files == 0 then return 1 end
+  if total_files == 0 then
+    return 1
+  end
   return (current_index % total_files) + 1
 end
 
 -- Cycle to previous file index (wraps around)
 function FileManager.prev_index(current_index, total_files)
-  if total_files == 0 then return 1 end
+  if total_files == 0 then
+    return 1
+  end
   return ((current_index - 2) % total_files) + 1
 end
 

@@ -8,7 +8,7 @@ local Filter = require("lib.filter")
 local keyboardRows = {
   { "q", "w", "e", "r", "t", "y", "u", "i", "o", "p" },
   { "a", "s", "d", "f", "g", "h", "j", "k", "l" },
-  { "z", "x", "c", "v", "b", "n", "m" }
+  { "z", "x", "c", "v", "b", "n", "m" },
 }
 
 local keySize = 22
@@ -25,19 +25,19 @@ function Dial.new(config)
     baseY = config.baseY,
     visualizerX = config.visualizerX,
     visualizerY = config.visualizerY,
-    label = config.label
+    label = config.label,
   }
 
   -- Keyboard layout (constant)
   self.keyboard = {
-    rows = keyboardRows
+    rows = keyboardRows,
   }
 
   -- State (initialized in load)
   self.key_positions = {}
   self.highlighted_key = nil
   self.region = nil
-  self.stick = { x = 0, y = 0 }  -- normalized -1 to 1 for visualizer
+  self.stick = { x = 0, y = 0 } -- normalized -1 to 1 for visualizer
 
   return self
 end
@@ -45,10 +45,11 @@ end
 -- Initialize key positions and state
 function Dial:load()
   self.key_positions = self:buildKeyPositions()
-  self.highlighted_key = "g"  -- default center
+  self.highlighted_key = "g" -- default center
   -- Initialize region around center key for stationary stick position
   self.region = Filter.get_key_region(
-    0, 0,  -- center position
+    0,
+    0, -- center position
     Filter.keyboard_virtual_positions,
     Filter.center_key
   )
@@ -61,23 +62,16 @@ function Dial:update(stick_vx, stick_vy)
   self.stick.y = stick_vy / 100
 
   -- Update highlighted key and region
-  self.highlighted_key = Filter.get_closest_key(
-    stick_vx, stick_vy,
-    Filter.keyboard_virtual_positions,
-    Filter.center_key
-  )
+  self.highlighted_key =
+    Filter.get_closest_key(stick_vx, stick_vy, Filter.keyboard_virtual_positions, Filter.center_key)
 
-  self.region = Filter.get_key_region(
-    stick_vx, stick_vy,
-    Filter.keyboard_virtual_positions,
-    Filter.center_key
-  )
+  self.region = Filter.get_key_region(stick_vx, stick_vy, Filter.keyboard_virtual_positions, Filter.center_key)
 end
 
 -- Render keyboard and stick visualizer
 function Dial:draw()
   self:drawKeyboard()
-  self:draw_stick_visualizer()  -- Draw on top of keyboard
+  self:draw_stick_visualizer() -- Draw on top of keyboard
 end
 
 -- Get currently highlighted key
@@ -98,8 +92,8 @@ function Dial:buildKeyPositions()
   for _, row in ipairs(self.keyboard.rows) do
     local numKeys = #row
     local rowWidth = numKeys * keyPitch - keySpacing
-    local maxRowWidth = 10 * keyPitch - keySpacing  -- Width of 10-key row
-    local rowStartX = self.config.baseX + (maxRowWidth - rowWidth) / 2  -- Center each row
+    local maxRowWidth = 10 * keyPitch - keySpacing -- Width of 10-key row
+    local rowStartX = self.config.baseX + (maxRowWidth - rowWidth) / 2 -- Center each row
 
     for colIndex, key in ipairs(row) do
       local x = rowStartX + (colIndex - 1) * keyPitch
@@ -115,9 +109,13 @@ end
 
 -- Internal: Check if key is in region array
 function Dial:key_in_region(key, region)
-  if not region then return false end
+  if not region then
+    return false
+  end
   for _, k in ipairs(region) do
-    if k == key then return true end
+    if k == key then
+      return true
+    end
   end
   return false
 end
@@ -181,7 +179,8 @@ function Dial:draw_stick_visualizer()
 
   -- Stick position dot (overlayed on keyboard)
   love.graphics.setColor(0.9, 0.3, 0.3)
-  love.graphics.circle("fill",
+  love.graphics.circle(
+    "fill",
     cx + self.stick.x * maxRowWidth / 2 * 0.9,
     cy + self.stick.y * keyboardHeight / 2 * 0.9,
     6
@@ -189,7 +188,13 @@ function Dial:draw_stick_visualizer()
 
   -- Label (under the keyboard)
   love.graphics.setColor(0.6, 0.6, 0.6)
-  love.graphics.printf(self.config.label, self.config.baseX, self.config.baseY + keyboardHeight + 5, maxRowWidth, "center")
+  love.graphics.printf(
+    self.config.label,
+    self.config.baseX,
+    self.config.baseY + keyboardHeight + 5,
+    maxRowWidth,
+    "center"
+  )
 end
 
 return Dial

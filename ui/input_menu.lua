@@ -17,13 +17,13 @@ function InputMenu.new(config)
     x = config.x or 400,
     y = config.y or 0,
     width = config.width or 400,
-    height = config.height or 600
+    height = config.height or 600,
   }
 
   -- State
   self.mode = "filter"
   self.filtered = {}
-  self.zr_prev = 0  -- For edge detection
+  self.zr_prev = 0 -- For edge detection
 
   -- Components (initialized in load)
   self.left_dial = nil
@@ -41,8 +41,8 @@ function InputMenu:load()
   -- Keyboard dimensions (from dial.lua constants)
   local keyPitch = 25
   local keySpacing = 3
-  local keyboardWidth = 10 * keyPitch - keySpacing  -- 247 pixels
-  local gap = 20  -- Gap between keyboards
+  local keyboardWidth = 10 * keyPitch - keySpacing -- 247 pixels
+  local gap = 20 -- Gap between keyboards
 
   -- Selection wheel (top)
   self.selection_wheel = SelectionWheel.new({
@@ -50,7 +50,7 @@ function InputMenu:load()
     cy = self.config.height * 0.18,
     visible_count = 8,
     radial_radius = 80,
-    deadzone = 0.3
+    deadzone = 0.3,
   })
   self.selection_wheel:load()
 
@@ -59,17 +59,17 @@ function InputMenu:load()
 
   -- Left dial (START keyboard) - on the left
   self.left_dial = Dial.new({
-    baseX = center_x - gap/2 - keyboardWidth,
+    baseX = center_x - gap / 2 - keyboardWidth,
     baseY = keyboardY,
-    label = "START"
+    label = "START",
   })
   self.left_dial:load()
 
   -- Right dial (END keyboard) - on the right
   self.right_dial = Dial.new({
-    baseX = center_x + gap/2,
+    baseX = center_x + gap / 2,
     baseY = keyboardY,
-    label = "END"
+    label = "END",
   })
   self.right_dial:load()
 end
@@ -88,8 +88,8 @@ function InputMenu:resize(x, y, width, height)
   -- Keyboard dimensions (from dial.lua constants)
   local keyPitch = 25
   local keySpacing = 3
-  local keyboardWidth = 10 * keyPitch - keySpacing  -- 247 pixels
-  local gap = 20  -- Gap between keyboards
+  local keyboardWidth = 10 * keyPitch - keySpacing -- 247 pixels
+  local gap = 20 -- Gap between keyboards
   local keyboardY = height * 0.55
 
   -- Update selection wheel
@@ -100,14 +100,14 @@ function InputMenu:resize(x, y, width, height)
 
   -- Update left dial (START keyboard on left)
   if self.left_dial then
-    self.left_dial.config.baseX = center_x - gap/2 - keyboardWidth
+    self.left_dial.config.baseX = center_x - gap / 2 - keyboardWidth
     self.left_dial.config.baseY = keyboardY
     self.left_dial.key_positions = self.left_dial:buildKeyPositions()
   end
 
   -- Update right dial (END keyboard on right)
   if self.right_dial then
-    self.right_dial.config.baseX = center_x + gap/2
+    self.right_dial.config.baseX = center_x + gap / 2
     self.right_dial.config.baseY = keyboardY
     self.right_dial.key_positions = self.right_dial:buildKeyPositions()
   end
@@ -125,8 +125,12 @@ function InputMenu:update(words, sticks, joystick)
   local right_vy = sticks.right.y * max_distance
 
   -- Update dials
-  if self.left_dial then self.left_dial:update(left_vx, left_vy) end
-  if self.right_dial then self.right_dial:update(right_vx, right_vy) end
+  if self.left_dial then
+    self.left_dial:update(left_vx, left_vy)
+  end
+  if self.right_dial then
+    self.right_dial:update(right_vx, right_vy)
+  end
 
   -- Get regions for filtering
   local left_region = self.left_dial and self.left_dial:get_region()
@@ -136,7 +140,6 @@ function InputMenu:update(words, sticks, joystick)
   if self.mode == "filter" then
     -- Live filtering using letter regions
     self.filtered = Filter.apply(words, left_region, right_region)
-
   elseif self.mode == "select" and self.selection_wheel then
     -- Update selection based on right stick position
     self.selection_wheel:update_selection(sticks.right)
@@ -147,7 +150,7 @@ function InputMenu:update(words, sticks, joystick)
       if word then
         self.mode = "filter"
         self.selection_wheel:reset()
-        return word  -- Return selected word
+        return word -- Return selected word
       end
     end
 
@@ -161,14 +164,18 @@ function InputMenu:update(words, sticks, joystick)
     end
   end
 
-  return nil  -- No word selected
+  return nil -- No word selected
 end
 
 -- Draw all input menu components
 function InputMenu:draw()
   -- Draw dials (keyboards and visualizers)
-  if self.left_dial then self.left_dial:draw() end
-  if self.right_dial then self.right_dial:draw() end
+  if self.left_dial then
+    self.left_dial:draw()
+  end
+  if self.right_dial then
+    self.right_dial:draw()
+  end
 
   -- Draw region indicators (aligned to bottom)
   local left_region = self.left_dial and self.left_dial:get_region()
@@ -185,13 +192,7 @@ function InputMenu:draw()
     )
   else
     love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.printf(
-      "Start: (any)",
-      self.config.x,
-      self.config.height - 90,
-      self.config.width,
-      "center"
-    )
+    love.graphics.printf("Start: (any)", self.config.x, self.config.height - 90, self.config.width, "center")
   end
 
   love.graphics.setColor(0.6, 0.8, 0.6)
@@ -205,13 +206,7 @@ function InputMenu:draw()
     )
   else
     love.graphics.setColor(0.5, 0.5, 0.5)
-    love.graphics.printf(
-      "End: (any)",
-      self.config.x,
-      self.config.height - 70,
-      self.config.width,
-      "center"
-    )
+    love.graphics.printf("End: (any)", self.config.x, self.config.height - 70, self.config.width, "center")
   end
 
   -- Draw filtered count (above wheel)
@@ -256,7 +251,7 @@ function InputMenu:handle_mode_toggle()
     local word = self.selection_wheel:get_selected_word(self.filtered)
     self.mode = "filter"
     self.selection_wheel:reset()
-    return word  -- Return selected word for immediate accept
+    return word -- Return selected word for immediate accept
   end
   return nil
 end

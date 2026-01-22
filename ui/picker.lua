@@ -17,7 +17,7 @@ function Picker.new(config)
   self.config = {
     visible_count = config.visible_count or VISIBLE_COUNT,
     item_height = config.item_height or ITEM_HEIGHT,
-    box_padding = config.box_padding or BOX_PADDING
+    box_padding = config.box_padding or BOX_PADDING,
   }
 
   -- State
@@ -25,7 +25,7 @@ function Picker.new(config)
   self.candidates = {}
   self.selected_index = 1
   self.page = 1
-  self.scroll_offset = 0  -- For smooth visual scrolling
+  self.scroll_offset = 0 -- For smooth visual scrolling
 
   -- Stick state for drawing vectors
   self.left_y = 0
@@ -133,8 +133,8 @@ function Picker:update(left_stick, right_stick, joystick)
   -- Right stick (micro): covers half range for fine control
 
   local center = (item_count + 1) / 2
-  local macro_range = (item_count - 1) / 2    -- Full range
-  local micro_range = (item_count - 1) / 4    -- Half range
+  local macro_range = (item_count - 1) / 2 -- Full range
+  local micro_range = (item_count - 1) / 4 -- Half range
 
   local macro_offset = left_y * macro_range
   local micro_offset = right_y * micro_range
@@ -142,7 +142,7 @@ function Picker:update(left_stick, right_stick, joystick)
   local raw_index = center + macro_offset + micro_offset
   self.selected_index = math.floor(math.max(1, math.min(item_count, raw_index)) + 0.5)
 
-  return nil  -- Selection happens on button press, not stick movement
+  return nil -- Selection happens on button press, not stick movement
 end
 
 function Picker:confirm_selection()
@@ -196,7 +196,7 @@ function Picker:draw()
   local content_x = box_x + self.config.box_padding
   local content_y = box_y + 60
   local content_width = box_width - self.config.box_padding * 2
-  local content_height = box_height - 120  -- Leave room for header and footer
+  local content_height = box_height - 120 -- Leave room for header and footer
 
   -- Set scissor for content area
   love.graphics.setScissor(content_x, content_y, content_width, content_height)
@@ -244,7 +244,9 @@ function Picker:draw()
 end
 
 function Picker:draw_vectors(x, content_y, content_height, item_count)
-  if item_count == 0 then return end
+  if item_count == 0 then
+    return
+  end
 
   local line_width = love.graphics.getLineWidth()
   love.graphics.setLineWidth(2)
@@ -280,10 +282,14 @@ function Picker:draw_vectors(x, content_y, content_height, item_count)
   -- Arrow head for macro
   if math.abs(macro_offset) > 5 then
     local arrow_dir = macro_offset > 0 and 1 or -1
-    love.graphics.polygon("fill",
-      x, macro_end_y,
-      x - 5, macro_end_y - 8 * arrow_dir,
-      x + 5, macro_end_y - 8 * arrow_dir
+    love.graphics.polygon(
+      "fill",
+      x,
+      macro_end_y,
+      x - 5,
+      macro_end_y - 8 * arrow_dir,
+      x + 5,
+      macro_end_y - 8 * arrow_dir
     )
   end
   -- Macro dot at start
@@ -295,11 +301,7 @@ function Picker:draw_vectors(x, content_y, content_height, item_count)
   -- Arrow head for micro
   if math.abs(micro_offset) > 5 then
     local arrow_dir = micro_offset > 0 and 1 or -1
-    love.graphics.polygon("fill",
-      x + 15, final_y,
-      x + 10, final_y - 6 * arrow_dir,
-      x + 20, final_y - 6 * arrow_dir
-    )
+    love.graphics.polygon("fill", x + 15, final_y, x + 10, final_y - 6 * arrow_dir, x + 20, final_y - 6 * arrow_dir)
   end
   -- Micro dot at macro end
   love.graphics.circle("fill", x + 15, macro_end_y, 3)

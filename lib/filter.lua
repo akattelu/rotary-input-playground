@@ -5,17 +5,37 @@ local Filter = {}
 -- Both left and right joysticks use the same full keyboard layout
 Filter.keyboard_virtual_positions = {
   -- Top row (q w e r t y u i o p)
-  q = { -90, -70 }, w = { -70, -70 }, e = { -50, -70 }, r = { -30, -70 }, t = { -10, -70 },
-  y = { 10, -70 }, u = { 30, -70 }, i = { 50, -70 }, o = { 70, -70 }, p = { 90, -70 },
+  q = { -90, -70 },
+  w = { -70, -70 },
+  e = { -50, -70 },
+  r = { -30, -70 },
+  t = { -10, -70 },
+  y = { 10, -70 },
+  u = { 30, -70 },
+  i = { 50, -70 },
+  o = { 70, -70 },
+  p = { 90, -70 },
   -- Middle row (a s d f g h j k l)
-  a = { -80, 0 }, s = { -60, 0 }, d = { -40, 0 }, f = { -20, 0 }, g = { 0, 0 },
-  h = { 20, 0 }, j = { 40, 0 }, k = { 60, 0 }, l = { 80, 0 },
+  a = { -80, 0 },
+  s = { -60, 0 },
+  d = { -40, 0 },
+  f = { -20, 0 },
+  g = { 0, 0 },
+  h = { 20, 0 },
+  j = { 40, 0 },
+  k = { 60, 0 },
+  l = { 80, 0 },
   -- Bottom row (z x c v b n m)
-  z = { -75, 70 }, x = { -50, 70 }, c = { -25, 70 }, v = { 0, 70 },
-  b = { 25, 70 }, n = { 50, 70 }, m = { 75, 70 }
+  z = { -75, 70 },
+  x = { -50, 70 },
+  c = { -25, 70 },
+  v = { 0, 70 },
+  b = { 25, 70 },
+  n = { 50, 70 },
+  m = { 75, 70 },
 }
 
-Filter.center_key = "g"  -- Center of keyboard
+Filter.center_key = "g" -- Center of keyboard
 
 -- Number of nearby keys to include in filter
 Filter.REGION_COUNT = 4
@@ -66,7 +86,9 @@ function Filter.get_key_region(stick_x, stick_y, virtual_positions, center_key)
   end
 
   -- Sort by distance (ascending)
-  table.sort(distances, function(a, b) return a.distance < b.distance end)
+  table.sort(distances, function(a, b)
+    return a.distance < b.distance
+  end)
 
   -- Return the N closest keys
   local region = {}
@@ -79,7 +101,9 @@ end
 
 -- Check if word starts with any letter in the region
 local function matches_start_letters(word, letter_region)
-  if not letter_region then return true end
+  if not letter_region then
+    return true
+  end
 
   local first_char = word:sub(1, 1)
   for _, letter in ipairs(letter_region) do
@@ -92,7 +116,9 @@ end
 
 -- Check if word ends with any letter in the region
 local function matches_end_letters(word, letter_region)
-  if not letter_region then return true end
+  if not letter_region then
+    return true
+  end
 
   local last_char = word:sub(-1)
   for _, letter in ipairs(letter_region) do
@@ -122,7 +148,9 @@ function Filter.apply(words, left_region, right_region)
       table.insert(result, word)
     end
     -- Limit for performance
-    if #result >= 500 then break end
+    if #result >= 500 then
+      break
+    end
   end
   return result
 end

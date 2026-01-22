@@ -11,7 +11,7 @@ local colors = {
   red = "\27[31m",
   green = "\27[32m",
   yellow = "\27[33m",
-  reset = "\27[0m"
+  reset = "\27[0m",
 }
 
 -- Core assert function with descriptive error logging
@@ -25,8 +25,11 @@ function M.equal(actual, expected, message)
     local info = debug.getinfo(2, "Sl")
     local err = string.format(
       "%s:%d: %s\n  expected: %s\n  actual:   %s",
-      info.short_src, info.currentline, message,
-      tostring(expected), tostring(actual)
+      info.short_src,
+      info.currentline,
+      message,
+      tostring(expected),
+      tostring(actual)
     )
     table.insert(M.errors, err)
     return false
@@ -51,10 +54,10 @@ function M.test(name, fn)
   if not ok then
     M.failed = M.failed + 1
     local info = debug.getinfo(2, "Sl")
-    table.insert(M.errors, string.format(
-      "%s:%d: %s\n  error: %s",
-      info.short_src, info.currentline, name, tostring(err)
-    ))
+    table.insert(
+      M.errors,
+      string.format("%s:%d: %s\n  error: %s", info.short_src, info.currentline, name, tostring(err))
+    )
   end
 end
 
