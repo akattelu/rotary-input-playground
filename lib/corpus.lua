@@ -18,7 +18,7 @@ function Corpus.load(filename)
   local words = {}
 
   filename = filename or "words.txt"
-  local content = love.filesystem.read(filename)
+  local content = love.filesystem.read("rsrc" .. "/" .. filename)
 
   if content then
     for word in content:gmatch("[^\r\n]+") do

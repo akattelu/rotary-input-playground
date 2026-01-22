@@ -93,7 +93,7 @@ When adding features:
 
 - **conf.lua**: LÖVE2D configuration (window size, title, modules)
 
-- **words.txt**: Word list loaded at startup
+- **rsrc/words.txt**: Word list loaded at startup
 
 ### Key State Variables
 
